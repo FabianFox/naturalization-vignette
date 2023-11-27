@@ -5,7 +5,7 @@
 if (!require("xfun")) install.packages("xfun")
 pkg_attach2("tidyverse", "rio", "here", "sjlabelled", "hrbrthemes",  
             "conflicted", "Cairo", "lmerTest", "gt", "janitor", "ggtext",
-            "patchwork", "modelsummary")
+            "patchwork", "modelsummary", "marginaleffects")
 
 ## Register fonts ----
 extrafont::loadfonts()
@@ -78,6 +78,20 @@ resp_levels <- c(
   "East Germany" = "Ostdeutschland")
 }
 
+# Coefplot-theme
+coefplot.theme <- theme(
+  legend.position = "bottom", legend.text = element_text(size = 14), 
+  legend.justification = "left",
+  plot.caption = element_text(hjust = 0, size = 12),
+  plot.caption.position = "plot",
+  text = element_text(colour = "black", size = 14, family = "Roboto Condensed"),
+  axis.line = element_line(colour = "black"),
+  axis.text = element_text(colour = "black"),
+  axis.ticks.x = element_line(colour = "black", linewidth = 0.5),
+  axis.ticks.y = element_line(colour = "black", linewidth = 0.5),
+  axis.text.y = element_markdown(lineheight = 1.5, family = "Roboto Condensed", size = 14),
+  axis.text.x = element_text(family = "Roboto Condensed", size = 14))
+                             
 ## Load data ----
 cawi.orig <- import(here("data", "SVR_Cawi.sav")) %>%
   tibble() %>%
@@ -106,8 +120,8 @@ cawi.df <- cawi.orig %>%
       .default = NULL),
     staatsbürgerschaft_resp = factor(staatsbürgerschaft_resp, 
                                      levels = c("deutsche Staatsangehörigkeit",
-                                                "doppelte Staatsangehörigkeit",
-                                                "keine deutsche Staatsangehörigkeit"),
+                                                "keine deutsche Staatsangehörigkeit",
+                                                "doppelte Staatsangehörigkeit"),
                                      exclude = NULL),
     geburtsland_resp = case_match(
       geb_1_resp,
@@ -116,7 +130,6 @@ cawi.df <- cawi.orig %>%
       .default = NULL),
     geburtsland_resp = factor(geburtsland_resp, levels = c("Deutschland", "Ausland"), 
                               exclude = NULL),
-    pol_resp = fct_recode(sjlabelled::as_label(pol_resp), "Sonstige" = "Andere, und zwar:"),
     geschlecht_resp = case_match(
       geschlecht_resp,
       1 ~ "weiblich",
@@ -126,15 +139,15 @@ cawi.df <- cawi.orig %>%
                              exclude = NULL),
     bildung_resp = case_match(
       bil_1_resp,
-      c(1, 2) ~ "kein Schulabschluss/in Beschulung",
       c(3, 4) ~ "Hauptschulabschluss, POS (8/9)",
       c(5, 6) ~ "Realschulabschluss, POS (10)",
       c(7, 8) ~ "Abitur, Fachhochschulreife",
+      c(1, 2) ~ "kein Schulabschluss/in Beschulung",
       .default = NULL),
-    bildung_resp = factor(bildung_resp, levels = c("kein Schulabschluss/in Beschulung",
-                                                   "Hauptschulabschluss, POS (8/9)",
-                                                   "Realschulabschluss, POS (10)",
-                                                   "Abitur, Fachhochschulreife"),
+    bildung_resp = factor(bildung_resp, levels = c("Hauptschulabschluss, POS (8/9)",
+                                                   "kein Schulabschluss/in Beschulung",
+                                                   "Abitur, Fachhochschulreife",
+                                                   "Realschulabschluss, POS (10)"),
                           exclude = NULL),
     region_resp = case_match(
       bundesland_resp,
@@ -146,7 +159,12 @@ cawi.df <- cawi.orig %>%
       .default = NULL),
     region_resp = factor(region_resp, levels = c("Westdeutschland (mit Berlin)", 
                                                  "Ostdeutschland"),
-                         exclude = NULL))
+                         exclude = NULL),
+    pol_resp = factor(sjlabelled::as_character(pol_resp), 
+                      levels = c("CDU/CSU", "Keine Partei", "Andere, und zwar:",
+                                 "AfD", "Die Linke", "FDP", "Bündnis 90 / Die Grünen",
+                                 "SPD"),
+                      exclude = NULL))
 
 # Vignette analysis ----
 ## Prepare data ----
@@ -218,18 +236,18 @@ cawi_long.df %>%
             var = var(rating, na.rm = TRUE),
             n = n()) 
 
-## Model ----
+# Model ----
 # Check block effects by including 'block' as a dummy variable (Ausprug/Hinz 2015: 91)
 model.df <- tibble(
-  model = c("base", "main", "int: employment", "int: language", "respondent", "cross-level interactions"),
+  model = c("base", "main", "int: all", "int: sig", "respondent", "int: cross-level"),
   dv = "rating ~ ",
   iv = c(
     "1",
     "mehrstaatigkeit_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig + geschlecht_vig",
-    "mehrstaatigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + geschlecht_vig + herkunft_vig*erwerbstätigkeit_vig",
-    "mehrstaatigkeit_vig + erwerbstätigkeit_vig + aufenthaltsdauer_vig + geschlecht_vig + herkunft_vig*sprachkenntnisse_vig",
-    "geschlecht_vig + mehrstaatigkeit_vig + aufenthaltsdauer_vig + herkunft_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + geschlecht_resp + alter_resp + bildung_resp + region_resp + pol_resp + staatsbürgerschaft_resp + w2_resp + w8_resp",
-    "geschlecht_vig + aufenthaltsdauer_vig + herkunft_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + mehrstaatigkeit_vig*alter_resp + geschlecht_resp + bildung_resp + region_resp + pol_resp + staatsbürgerschaft_resp + w2_resp + w8_resp"),
+    "(mehrstaatigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + geschlecht_vig + herkunft_vig*erwerbstätigkeit_vig)^2",
+    "mehrstaatigkeit_vig*geschlecht_vig + mehrstaatigkeit_vig*sprachkenntnisse_vig + erwerbstätigkeit_vig + aufenthaltsdauer_vig + geschlecht_vig + herkunft_vig",
+    "mehrstaatigkeit_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig + geschlecht_vig + pol_resp + w2_resp + w8_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + alter_resp + geschlecht_resp",
+    "mehrstaatigkeit_vig*alter_resp + mehrstaatigkeit_vig*w8_resp + erwerbstätigkeit_vig*w8_resp + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig*w8_resp + geschlecht_vig + pol_resp + w2_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + geschlecht_resp"),
   random = c(" + (1 | intnr) + (1 | vignette)")) %>%
   mutate(formula = str_c(dv, iv, random))
 
@@ -241,16 +259,30 @@ model.df <- model.df %>%
 model.df <- model.df %>%
   mutate(tidy_result = map(result, ~.x %>%
                              broom.mixed::tidy(conf.int = TRUE) %>%
-                             mutate(stars = gtools::stars.pval(p.value))))
+                             mutate(stars = gtools::stars.pval(p.value))),
+         rsq = map(result, ~.x %>%
+                      jtools::summ() %>%
+                      attr("rsqs") %>%
+                      enframe() %>%
+                      mutate(value = unlist(value))),
+         icc = map(result, ~.x %>%
+                     jtools::summ() %>%
+                     attr("iccs") %>%
+                     .[1:2] %>%
+                     enframe() %>%
+                     mutate(value = unlist(value))),
+         aic = map(result, ~.x %>%
+                     jtools::summ() %>%
+                     attr("aic") %>%
+                     enframe() %>%
+                     mutate(value = unlist(value))),
+         bic = map(result, ~.x %>%
+                     jtools::summ() %>%
+                     attr("bic") %>%
+                     enframe() %>%
+                     mutate(value = unlist(value))))
 
-# All interactions
-model_int <- lmerTest::lmer(rating ~ (geschlecht_vig + herkunft_vig + aufenthaltsdauer_vig + 
-                                        erwerbstätigkeit_vig + sprachkenntnisse_vig + 
-                                        mehrstaatigkeit_vig)^2 + 
-                              (1 | vignette) + (1 | intnr), 
-                            data = cawi_long.df)
-
-### Cross-level interactions ----
+### All cross-level interactions ----
 # All vignette variables
 vig_vars <- cawi_long.df %>%
   names() %>%
@@ -259,7 +291,7 @@ vig_vars <- cawi_long.df %>%
 # All respondent variables
 resp_vars <- cawi_long.df %>%
   names() %>%
-  str_subset("geschlecht_resp|alter_resp|bundesland_resp|pol_resp|bildung_resp|staatsbürgerschaft_resp")
+  str_subset("geschlecht_resp|alter_resp|region_resp|pol_resp|bildung_resp|staatsbürgerschaft_resp|w2_resp|w8_resp")
 
 # Model formula (all combinations)
 models <- tibble(
@@ -286,10 +318,22 @@ models <- models %>%
 models %>%
   filter(str_detect(term, ":") & stars %in% c("***", "**", "*"))
 
+# Model with significant cross-level interactions
+clevel.mod <- lmerTest::lmer(rating ~ 
+                               mehrstaatigkeit_vig*w8_resp + 
+                               mehrstaatigkeit_vig*alter_resp + 
+                               erwerbstätigkeit_vig*w8_resp + 
+                               herkunft_vig*w8_resp + 
+                               aufenthaltsdauer_vig + geschlecht_vig + pol_resp + 
+                               w2_resp + region_resp + bildung_resp + geschlecht_resp +
+                               (1 | vignette) + (1 | intnr),
+                             data = cawi_long.df)
+
 ## Plot ----
+### Different quantities ----
 # Geschlecht x Mehrstaatigkeit
 marginaleffects::predictions(
-  model_int2, 
+  model_int, 
   newdata = datagrid(geschlecht_vig = unique, 
                      mehrstaatigkeit_vig = unique),
   re.form = NA) %>%
@@ -300,23 +344,12 @@ marginaleffects::predictions(
 
 # Sprachkenntnisse x Mehrstaatigkeit
 marginaleffects::predictions(
-  model_int2, 
+  model_int, 
   newdata = datagrid(sprachkenntnisse_vig = unique, 
                      mehrstaatigkeit_vig = unique),
   re.form = NA) %>%
   ggplot(aes(x = sprachkenntnisse_vig, y = estimate, ymin = conf.low, ymax = conf.high, 
              colour = mehrstaatigkeit_vig, fill = mehrstaatigkeit_vig)) + 
-  geom_pointrange(position = position_dodge(width = .9)) +
-  theme_ipsum(base_family = "Roboto Condensed")
-
-# Staatsangehörigkeit x Erwerbstätigkeit
-marginaleffects::predictions(
-  model_full, 
-  newdata = datagrid(staatsbürgerschaft_resp = unique, 
-                     erwerbstätigkeit_vig = unique),
-  re.form = NA) %>%
-  ggplot(aes(x = staatsbürgerschaft_resp, y = estimate, ymin = conf.low, ymax = conf.high, 
-             colour = erwerbstätigkeit_vig, fill = erwerbstätigkeit_vig)) + 
   geom_pointrange(position = position_dodge(width = .9)) +
   theme_ipsum(base_family = "Roboto Condensed")
 
@@ -331,32 +364,8 @@ marginaleffects::predictions(
   geom_pointrange(position = position_dodge(width = .9)) +
   theme_ipsum(base_family = "Roboto Condensed")
 
-# Alter x Mehrstaatigkeit
-# Marginal effects
-age_dualcit_interaction.df <- marginaleffects::predictions(
-  model_resp, 
-  newdata = datagrid(alter_resp = seq(18, 80, 1), 
-                     mehrstaatigkeit_vig = c("behalten", "aufgeben")),
-  re.form = NA) 
-
-# Meaningful comparisons
-age_dualcit_interaction.df %>%
-  filter(alter_resp %in% c(20, 60, 80), mehrstaatigkeit_vig == "behalten") %>%
-  select(estimate, mehrstaatigkeit_vig, alter_resp) %>% 
-  pivot_wider(names_from = alter_resp, values_from = estimate, names_prefix = "alter_") %>% 
-  mutate(diff20_60 = alter_20 - alter_60,
-         diff20_80 = alter_20 - alter_80)
-
-# Interaction plot
-age_dualcit_interaction.fig <- age_dualcit_interaction.df %>%
-  ggplot(aes(x = alter_resp, y = estimate, ymin = conf.low, ymax = conf.high, 
-             colour = mehrstaatigkeit_vig, fill = mehrstaatigkeit_vig)) + 
-  geom_line() +
-  geom_ribbon(alpha = .5) +
-  scale_fill_manual(values = c("aufgeben" = "#0098D4", "behalten" = "#003c76")) +
-  theme_ipsum(base_family = "Tahoma")
-
-# Coefficient plot
+### Coefficient plots ----
+#### Main model ----
 main_model.fig <- modelsummary::modelplot(model.df[model.df$model == "main",]$result, 
                                          coef_omit = "Intercept|SD",
                                          colour = "black",
@@ -388,33 +397,174 @@ main_model.fig <- modelsummary::modelplot(model.df[model.df$model == "main",]$re
                      limits = c(-1, 1.5),
                      labels = function(x) str_replace(x, "[.]", ",")) +
   labs(x = "", y = "") +
-  theme(legend.position = "bottom", legend.text = element_text(size = 14), 
-        legend.justification = "left",
-        plot.caption = element_text(hjust = 0, size = 12),
-        plot.caption.position = "plot",
-        text = element_text(colour = "black", size = 14),
-        axis.line = element_line(colour = "black"),
-        axis.text = element_text(colour = "black"),
-        axis.ticks.x = element_line(colour = "black", linewidth = 0.5),
-        axis.ticks.y = element_line(colour = "black", linewidth = 0.5),
-        axis.text.y = element_markdown(lineheight = 1.5, family = "Roboto Condensed", size = 14),
-        axis.text.x = element_text(family = "Roboto Condensed", size = 14))
+  coefplot.theme
 
-# Respondent characteristics
+#### Respondent characteristics ----
 resp_model <- model.df %>% 
   filter(model == "respondent") %>% 
-  pull(tidy_result) %>% 
-  .[[1]] %>% 
-  filter(effect == "fixed", term != "(Intercept)") %>%
-  mutate(level = ifelse(str_detect(term, "resp"), "Respondent", "Vignette")) %>%
-  group_by(level) %>%
-  nest() %>%
-  mutate(plot = map(data, ~.x %>%
-                      ggplot(aes(x = estimate, y = term, xmin = conf.low, xmax = conf.high)) +
-                      geom_linerange() +
-                      theme_ipsum())) 
+  expand_grid(level = c("Vignette", "Respondent")) %>%
+  select(level, result)
 
-wrap_plots(resp_model$plot)
+# Add plots 
+resp_model <- resp_model %>%
+  mutate(plot = map_if(result, level %in% "Vignette", ~.x %>%
+                         modelplot(., 
+                                   coef_omit = "Intercept|SD|resp",
+                                   colour = "black",
+                                   size = .75,
+                                   linewidth = 1,
+                                   coef_rename = function(x)
+                                     str_replace_all(x, 
+                                                     c("mehrstaatigkeit_vig" = "",
+                                                       "aufgeben" = "**Current citizenship:** Renounce<br>(ref.: Retain)</span>",
+                                                       "erwerbstätigkeit_vig" = "",
+                                                       "berufstätig" = "**Employment:** Employed<br>(ref.: Seeking employment)</span>",
+                                                       "sprachkenntnisse_vig" = "",
+                                                       "sehr gut" = "**Language proficiency:** Very good<br>(ref.: Little)</span>",
+                                                       "aufenthaltsdauer_vig" = "",
+                                                       "10 Jahre" = "10 years</span>",
+                                                       "5 Jahre" = "**Duration of residence:** 5 years<br>(ref.: 3 years)</span>",
+                                                       "herkunft_vig" = "",
+                                                       "Türkei" = "**Country of origin:** Turkey<br>(ref.: Great Britain)</span>",
+                                                       "Indien" = "India</span>",
+                                                       "geschlecht_vig" = "",
+                                                       "männlich" = "**Gender:** Male<br>(ref.: Female)</span>"
+                                                     ))) +
+                         geom_vline(xintercept = 0, color = "black", linetype = "dashed", linewidth = 1) +
+                         geom_label(aes(x = estimate, y = term, label = round(estimate, 2)), 
+                                    family = "Roboto Condensed", vjust = 1.5, size = 4.5) +
+                         scale_x_continuous(breaks = c(-1, -.5, 0, .5, 1, 1.5), 
+                                            limits = c(-1, 1.5),
+                                            labels = function(x) str_replace(x, "[.]", ",")) +
+                         labs(title = "Vignette variables", x = "", y = "") +
+                         coefplot.theme,
+                       .else = ~.x %>%
+                         modelplot(., 
+                                   coef_omit = "Intercept|SD|vig",
+                     colour = "black",
+                     size = .75,
+                     linewidth = 1,
+                     coef_rename = function(x)
+                       str_replace_all(x, 
+                                       c("pol_resp" = "",
+                                         "SPD" = "**Party preference:** SPD<br>(ref.: CDU/CSU)</span>",
+                                         "Bündnis 90 / Die Grünen" = "Bündnis 90 / Die Grünen",
+                                         "FDP" = "FDP",
+                                         "Die Linke" = "Die Linke",
+                                         "AFD" = "AFD",
+                                         "Andere, und zwar:" = "Other",
+                                         "Keine Partei" = "No preference",
+                                         "staatsbürgerschaft_resp" = "",
+                                         "doppelte Staatsangehörigkeit" = "**Citizenship:** Dual citizenship<br>(ref.: Only German)</span>",
+                                         "keine deutsche Staatsangehörigkeit" = "Third country",
+                                         "region_resp" = "",
+                                         "Ostdeutschland" = "**Region:** East Germany<br>(ref.: West Germany)</span>",
+                                         "w8_resp" = "**Immigration** concern",
+                                         "w2_resp" = "**Economic** concern",
+                                         "bildung_resp" = "",
+                                         "Realschulabschluss, POS \\(10\\)" = "**Education:** Realschule (10)<br>(ref.: Hauptschule \\(8/9\\))</span>",
+                                         "Abitur, Fachhochschulreife" = "Abitur, Fachhochschulreife</span>",
+                                         "kein Schulabschluss/in Beschulung" = "No diploma/in school</span>",
+                                         "alter_resp" = "**Age**",
+                                         "geschlecht_resp" = "",
+                                         "männlich" = "**Gender:** Male<br>(ref.: Female)</span>"
+                                       ))) +
+           geom_vline(xintercept = 0, color = "black", linetype = "dashed", linewidth = 1) +
+           geom_label(aes(x = estimate, y = term, label = round(estimate, 2)), 
+                      family = "Roboto Condensed", vjust = 1.5, size = 4.5) +
+           annotate("text",  x = Inf, y = Inf, label = expression(atop(textstyle(paste("Pseudo-R"^2 ," (FE) " == 0.29)), atop(textstyle(paste("Pseudo-R"^2 ," (total) " == 0.53)), atop(scriptscriptstyle(""), textstyle(paste("ICC" == 0.33)))))), 
+                    vjust = 1, hjust = 1, parse = TRUE, family = "Roboto Condensed", size = 4.6)  +
+           scale_x_continuous(breaks = c(-1, -.5, 0, .5, 1, 1.5), 
+                              limits = c(-1.5, 1.5),
+                              labels = function(x) str_replace(x, "[.]", ",")) +
+           labs(title = "Respondent characteristics", x = "", y = "") +
+           coefplot.theme))
+
+# Combine levels
+respondent_model.fig <- wrap_plots(resp_model$plot)
+
+#### Cross-level interactions ----
+##### Age x Dual citizenship ----
+# Marginal effects
+age_dualcit_interaction.df <- marginaleffects::predictions(
+  model.df[model.df$model == "int: cross-level",]$result[[1]], 
+  newdata = datagrid(alter_resp = unique, 
+                     mehrstaatigkeit_vig = c("behalten", "aufgeben")),
+  re.form = NA) 
+
+# Interaction plot
+age_dualcit_interaction.fig <- age_dualcit_interaction.df %>%
+  ggplot(aes(x = alter_resp, y = estimate, ymin = conf.low, ymax = conf.high, 
+             fill = mehrstaatigkeit_vig)) + 
+  geom_line(aes(linetype = mehrstaatigkeit_vig), size = 1.5) +
+  geom_ribbon(alpha = .5) +
+  annotate("text", x = 20, y = 4.5, label = "Renounce", size = 8, hjust = 0) +
+  annotate("text", x = 70, y = 2.85, label = "Retain", size = 8, hjust = 0) +
+  scale_x_continuous(breaks = seq(20, 90, 10)) +
+  scale_colour_manual(values = rep("black", 2)) +
+  scale_fill_manual(values = c("aufgeben" = "#bdbdbd", "behalten" = "#252525")) +
+  labs(x = "", y = "") +
+  theme_ipsum(base_family = "Roboto Condensed") +
+  coefplot.theme +
+  theme(legend.position = "none")
+
+##### Migration concerns x Country of origin ----
+migconcern_origin_interaction.df <- marginaleffects::predictions(
+  model.df[model.df$model == "int: cross-level",]$result[[1]], 
+  newdata = datagrid(w8_resp = unique, 
+                     herkunft_vig = unique),
+  re.form = NA) 
+
+# Interaction plot
+migconcern_origin_interaction.fig <- migconcern_origin_interaction.df %>% 
+  filter(herkunft_vig != "Indien") %>%
+  ggplot(aes(x = w8_resp, y = estimate, ymin = conf.low, ymax = conf.high, 
+             fill = herkunft_vig)) + 
+  geom_line(aes(linetype = herkunft_vig), size = 1.5) +
+  geom_ribbon(alpha = .5) +
+  annotate("text", x = 5, y = 4.85, label = "United Kingdom", size = 8, hjust = 0) +
+  annotate("text", x = 4, y = 4, label = "Turkey", size = 8, hjust = 0) +
+  scale_x_continuous(breaks = seq(1, 7, 1)) +
+  scale_fill_manual(values = c("Großbritannien" = "#bdbdbd", "Türkei" = "#252525")) +
+  labs(x = "", y = "") +
+  theme_ipsum(base_family = "Roboto Condensed") +
+  coefplot.theme +
+  theme(legend.position = "none") 
+
+# Meaningful comparisons
+migconcern_origin_interaction.df %>%
+  select(estimate, herkunft_vig, w8_resp) %>% 
+  arrange(w8_resp) %>%
+  pivot_wider(names_from = w8_resp, values_from = estimate, names_prefix = "w8_") 
+#  mutate(diff20_60 = alter_20 - alter_60,
+#         diff20_80 = alter_20 - alter_80)
+
+##### Migration concerns x Employment ----
+migconcern_employment_interaction.df <- marginaleffects::predictions(
+  model.df[model.df$model == "int: cross-level",]$result[[1]], 
+  newdata = datagrid(w8_resp = unique, 
+                     erwerbstätigkeit_vig = unique),
+  re.form = NA) 
+
+# Interaction plot
+migconcern_employment_interaction.fig <- migconcern_employment_interaction.df %>% 
+  ggplot(aes(x = w8_resp, y = estimate, ymin = conf.low, ymax = conf.high, 
+             fill = erwerbstätigkeit_vig)) + 
+  geom_line(aes(linetype = erwerbstätigkeit_vig), size = 1.5) +
+  geom_ribbon(alpha = .5) +
+  annotate("text", x = 2.5, y = 5.1, label = "Employed", size = 8, hjust = 0) +
+  annotate("text", x = 5.1, y = 2.75, label = "Seeking\nemployment", size = 8, hjust = 0) +
+  scale_x_continuous(breaks = seq(1, 7, 1)) +
+  scale_fill_manual(values = c("arbeitssuchend" = "#bdbdbd", "berufstätig" = "#252525")) +
+  labs(x = "", y = "") +
+  theme_ipsum(base_family = "Roboto Condensed") +
+  coefplot.theme +
+  theme(legend.position = "none")   
+
+# Combine
+wrap_plots(age_dualcit_interaction.fig,
+           migconcern_origin_interaction.fig, 
+           migconcern_employment_interaction.fig)
 
 # Description ----
 #### Orthogonality ----
@@ -470,6 +620,15 @@ resp_attr.tbl <- resp_attr.tbl %>%
 ggsave(plot = main_model.fig, filename = here("figures", "main_mod_coefplot.png"), 
        device = ragg::agg_png(res = 300), bg = "white",
        width = 20, height = 16, units = "cm")
+
+ggsave(plot = respondent_model.fig, filename = here("figures", "resp_mod_coefplot.png"), 
+       device = ragg::agg_png(res = 300), bg = "white",
+       width = 34, height = 28, units = "cm")
+
+ggsave(plot = resp_model$plot[[2]] + labs(title = ""),
+       filename = here("figures", "resp_mod_coefplot_L2.png"), 
+       device = ragg::agg_png(res = 300), bg = "white",
+       width = 20, height = 26, units = "cm")
 
 gtsave(balance_tbl, filename = here("output", "vignette-dimensions.rtf"))
 

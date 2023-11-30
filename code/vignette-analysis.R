@@ -89,8 +89,8 @@ coefplot.theme <- theme(
   axis.text = element_text(colour = "black"),
   axis.ticks.x = element_line(colour = "black", linewidth = 0.5),
   axis.ticks.y = element_line(colour = "black", linewidth = 0.5),
-  axis.text.y = element_markdown(lineheight = 1.5, family = "Roboto Condensed", size = 14),
-  axis.text.x = element_text(family = "Roboto Condensed", size = 14))
+  axis.text.y = element_markdown(lineheight = 1.5, family = "Roboto Condensed", size = 20),
+  axis.text.x = element_text(family = "Roboto Condensed", size = 20))
                              
 ## Load data ----
 cawi.orig <- import(here("data", "SVR_Cawi.sav")) %>%
@@ -244,7 +244,7 @@ model.df <- tibble(
   iv = c(
     "1",
     "mehrstaatigkeit_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig + geschlecht_vig",
-    "(mehrstaatigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + geschlecht_vig + herkunft_vig*erwerbstätigkeit_vig)^2",
+    "(mehrstaatigkeit_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig + geschlecht_vig)^2",
     "mehrstaatigkeit_vig*geschlecht_vig + mehrstaatigkeit_vig*sprachkenntnisse_vig + erwerbstätigkeit_vig + aufenthaltsdauer_vig + geschlecht_vig + herkunft_vig",
     "mehrstaatigkeit_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig + geschlecht_vig + pol_resp + w2_resp + w8_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + alter_resp + geschlecht_resp",
     "mehrstaatigkeit_vig*alter_resp + mehrstaatigkeit_vig*w8_resp + erwerbstätigkeit_vig*w8_resp + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig*w8_resp + geschlecht_vig + pol_resp + w2_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + geschlecht_resp"),
@@ -281,6 +281,28 @@ model.df <- model.df %>%
                      attr("bic") %>%
                      enframe() %>%
                      mutate(value = unlist(value))))
+
+# LR-Test for main and two-way interactions
+lr_test.df <- model.df %>%
+  filter(model %in% c("main", "int: all")) %>%
+  select(model, result) %>%
+  mutate(lrtest = map(result, ~.x %>%
+                        drop1(., test = "Chisq") %>%
+                        broom::tidy())) %>%
+  select(-result) %>%
+  unnest(lrtest) %>%
+  select(term, df = NumDF, LRT = statistic, p = p.value) %>%
+  mutate(term = str_replace(string = 
+           stringi::stri_replace_all_fixed(
+             term, 
+             pattern = term, 
+             replacement = names(vig_names), 
+             vectorise_all = F), 
+           pattern = ":", 
+           replacement = " × ")) %>%
+  gt() %>%
+  fmt_number(p, decimals = 4) %>%
+  fmt_number(LRT, decimals = 2)
 
 ### All cross-level interactions ----
 # All vignette variables
@@ -322,6 +344,7 @@ models %>%
 clevel.mod <- lmerTest::lmer(rating ~ 
                                mehrstaatigkeit_vig*w8_resp + 
                                mehrstaatigkeit_vig*alter_resp + 
+                               mehrstaatigkeit_vig*staatsbürgerschaft_resp +
                                erwerbstätigkeit_vig*w8_resp + 
                                herkunft_vig*w8_resp + 
                                aufenthaltsdauer_vig + geschlecht_vig + pol_resp + 
@@ -498,22 +521,23 @@ age_dualcit_interaction.fig <- age_dualcit_interaction.df %>%
              fill = mehrstaatigkeit_vig)) + 
   geom_line(aes(linetype = mehrstaatigkeit_vig), size = 1.5) +
   geom_ribbon(alpha = .5) +
-  annotate("text", x = 20, y = 4.5, label = "Renounce", size = 8, hjust = 0) +
-  annotate("text", x = 70, y = 2.85, label = "Retain", size = 8, hjust = 0) +
+  annotate("text", x = 20, y = 4.65, label = "Renounce", size = 7, hjust = 0) +
+  annotate("text", x = 70, y = 2.75, label = "Retain", size = 7, hjust = 0) +
   scale_x_continuous(breaks = seq(20, 90, 10)) +
   scale_colour_manual(values = rep("black", 2)) +
+  scale_y_continuous(limits = c(2.5, 5.5)) +
   scale_fill_manual(values = c("aufgeben" = "#bdbdbd", "behalten" = "#252525")) +
-  labs(x = "", y = "") +
+  labs(x = "", y = "", title = "Dual citizenship (L1) × Age (L2)") +
   theme_ipsum(base_family = "Roboto Condensed") +
   coefplot.theme +
   theme(legend.position = "none")
 
-##### Migration concerns x Country of origin ----
+##### Concerns x Country of origin ----
 migconcern_origin_interaction.df <- marginaleffects::predictions(
   model.df[model.df$model == "int: cross-level",]$result[[1]], 
   newdata = datagrid(w8_resp = unique, 
                      herkunft_vig = unique),
-  re.form = NA) 
+  re.form = NA)
 
 # Interaction plot
 migconcern_origin_interaction.fig <- migconcern_origin_interaction.df %>% 
@@ -522,11 +546,12 @@ migconcern_origin_interaction.fig <- migconcern_origin_interaction.df %>%
              fill = herkunft_vig)) + 
   geom_line(aes(linetype = herkunft_vig), size = 1.5) +
   geom_ribbon(alpha = .5) +
-  annotate("text", x = 5, y = 4.85, label = "United Kingdom", size = 8, hjust = 0) +
-  annotate("text", x = 4, y = 4, label = "Turkey", size = 8, hjust = 0) +
+  annotate("text", x = 5, y = 5.25, label = "United\nKingdom", size = 7, hjust = 0) +
+  annotate("text", x = 5, y = 3.5, label = "Turkey", size = 7, hjust = 0) +
   scale_x_continuous(breaks = seq(1, 7, 1)) +
+  scale_y_continuous(limits = c(2.5, 5.5)) +
   scale_fill_manual(values = c("Großbritannien" = "#bdbdbd", "Türkei" = "#252525")) +
-  labs(x = "", y = "") +
+  labs(x = "", y = "", title = "Country of origin (L1) × Migration concerns (L2)") +
   theme_ipsum(base_family = "Roboto Condensed") +
   coefplot.theme +
   theme(legend.position = "none") 
@@ -539,7 +564,7 @@ migconcern_origin_interaction.df %>%
 #  mutate(diff20_60 = alter_20 - alter_60,
 #         diff20_80 = alter_20 - alter_80)
 
-##### Migration concerns x Employment ----
+##### Concerns x Employment ----
 migconcern_employment_interaction.df <- marginaleffects::predictions(
   model.df[model.df$model == "int: cross-level",]$result[[1]], 
   newdata = datagrid(w8_resp = unique, 
@@ -552,19 +577,23 @@ migconcern_employment_interaction.fig <- migconcern_employment_interaction.df %>
              fill = erwerbstätigkeit_vig)) + 
   geom_line(aes(linetype = erwerbstätigkeit_vig), size = 1.5) +
   geom_ribbon(alpha = .5) +
-  annotate("text", x = 2.5, y = 5.1, label = "Employed", size = 8, hjust = 0) +
-  annotate("text", x = 5.1, y = 2.75, label = "Seeking\nemployment", size = 8, hjust = 0) +
+  annotate("text", x = 4.8, y = 4.8, label = "Employed", size = 7, hjust = 0) +
+  annotate("text", x = 3, y = 3, label = "Seeking\nemployment", size = 7, hjust = 0) +
   scale_x_continuous(breaks = seq(1, 7, 1)) +
+  scale_y_continuous(limits = c(2.5, 5.5)) +
   scale_fill_manual(values = c("arbeitssuchend" = "#bdbdbd", "berufstätig" = "#252525")) +
-  labs(x = "", y = "") +
+  labs(x = "", y = "", title = "Employment (L1) × Migration concerns (L2)") +
   theme_ipsum(base_family = "Roboto Condensed") +
   coefplot.theme +
   theme(legend.position = "none")   
 
 # Combine
-wrap_plots(age_dualcit_interaction.fig,
-           migconcern_origin_interaction.fig, 
-           migconcern_employment_interaction.fig)
+cross_lvl.fig <- wrap_plots(
+  age_dualcit_interaction.fig,
+  migconcern_origin_interaction.fig, 
+  migconcern_employment_interaction.fig,
+  ncol = 2) + 
+  plot_annotation(tag_levels = "A") 
 
 # Description ----
 #### Orthogonality ----
@@ -629,6 +658,10 @@ ggsave(plot = resp_model$plot[[2]] + labs(title = ""),
        filename = here("figures", "resp_mod_coefplot_L2.png"), 
        device = ragg::agg_png(res = 300), bg = "white",
        width = 20, height = 26, units = "cm")
+
+ggsave(plot = cross_lvl.fig, filename = here("figures", "cross_lvl_interactions.png"),
+       device = ragg::agg_png(res = 300), bg = "white",
+       width = 30, height = 24, units = "cm")
 
 gtsave(balance_tbl, filename = here("output", "vignette-dimensions.rtf"))
 

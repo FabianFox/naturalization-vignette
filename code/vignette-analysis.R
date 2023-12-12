@@ -54,7 +54,9 @@ resp_names <- c(
   "Age group" = "alter_kat_resp",
   "Party preference" = "pol_resp",
   "Federal state" = "bundesland_resp",
-  "Region" = "region_resp")
+  "Region" = "region_resp",
+  "Economic threat" = "w2_resp",
+  "Cultural threat" = "w8_resp")
 
 # Respondent attributes levels
 resp_levels <- c(
@@ -709,23 +711,42 @@ balance_tbl <- cawi_long.df %>%
 
 ## Respondent attributes ----
 resp_attr.tbl <- cawi.df %>%
-  select(!!!resp_names) %>%  # w2_resp, w8_resp
+  select(!!!resp_names) %>% 
   select(-c(Age, `Federal state`)) %>%
   mutate(across(where(is.factor), ~fct_recode(., !!!resp_levels)),
          Citizenship = fct_na_value_to_level(Citizenship, level = "Prefer not say"),
          ) %>%
-  modelsummary::datasummary_balance(~1, data = ., output = "gt") %>%
-  cols_label(
-    " " = "Attribute",
-    "  " = "Level",
-    Pct. = "Percentage")
+  modelsummary::datasummary_balance(~1, data = ., output = "gt") 
 
-# Change formatting of `N`
-resp_attr.tbl$`_data`$N <- as.numeric(resp_attr.tbl$`_data`$N)
+# Robustness ----
+## Tobit model ----
+# Information on censoring
+cawi_long.df <- cawi_long.df %>%
+  mutate(ind = case_when(
+    between(rating, 2, 6) ~ 0, # no censoring
+    rating == 1 ~ 1, # left censoring
+    rating == 7 ~ 2,  # right censoring
+    .default = NA_real_))
 
-# fmt_number
-resp_attr.tbl <- resp_attr.tbl %>%
-  fmt_number(N,  drop_trailing_zeros = TRUE)
+# Model df
+tobit.df <- tibble(
+  model = c("base", "main", "int: all", "int: sig", "respondent", "int: cross-level"),
+  dv = "cbind(rating, ind) ~ ",
+  iv = c(
+    "1",
+    "mehrstaatigkeit_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig + geschlecht_vig",
+    "(mehrstaatigkeit_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig + geschlecht_vig)^2",
+    "mehrstaatigkeit_vig*geschlecht_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig*geschlecht_vig + herkunft_vig",
+    "erwerbstätigkeit_vig + sprachkenntnisse_vig + herkunft_vig + aufenthaltsdauer_vig*geschlecht_vig + mehrstaatigkeit_vig*geschlecht_vig + pol_resp + w2_resp + w8_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + alter_resp + geschlecht_resp",
+    "mehrstaatigkeit_vig*alter_resp + mehrstaatigkeit_vig*w8_resp + erwerbstätigkeit_vig*w8_resp + sprachkenntnisse_vig + aufenthaltsdauer_vig*geschlecht_vig + mehrstaatigkeit_vig*geschlecht_vig + herkunft_vig*w8_resp + pol_resp + w2_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + geschlecht_resp")) %>%
+  mutate(formula = str_c(dv, iv))
+
+# Run models
+tobit.df <- tobit.df %>%
+  mutate(result = map(formula, ~GLMMadaptive::mixed_model(fixed = as.formula(.x), 
+                                                          random = ~ 1 | intnr,
+                                                          data = cawi_long.df,
+                                                          family = censored.normal())))
 
 # Export ----
 ggsave(plot = main_model.fig, filename = here("figures", "main_mod_coefplot.png"), 

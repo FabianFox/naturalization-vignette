@@ -199,13 +199,6 @@ cawi_long.df <- cawi_long.df %>%
 cawi_long.df <- cawi_long.df %>% 
   filter(!is.na(rating))
 
-# Variance in individual responses 
-cawi_long.df %>%
-  group_by(intnr) %>%
-  mutate(var_resp = var(rating)) %>%
-  ungroup() %>%
-  filter(!var_resp == 0)
-
 # Description ----
 # All ratings
 cawi_long.df %>%
@@ -235,7 +228,9 @@ cawi_long.df %>%
   mutate(p = n / sum(n) * 100) %>%
   ggplot(aes(x = rating, y = p)) +
   geom_bar(fill = "#0098D4", stat = "identity") +
-  scale_y_continuous(labels = function(x) str_c(x, "%"))
+  geom_text(aes(label = round(p, 1), vjust = -1)) +
+  scale_y_continuous(labels = function(x) str_c(x, "%")) +
+  theme_ipsum_rc()
 
 # Summary statistics
 cawi_long.df %>%
@@ -243,7 +238,7 @@ cawi_long.df %>%
             median = median(rating, na.rm = TRUE),
             sigma = sd(rating, na.rm = TRUE),
             var = var(rating, na.rm = TRUE),
-            n = n()) 
+            n = n())
 
 # Model ----
 # Check block effects by including 'block' as a dummy variable (Ausprug/Hinz 2015: 91)
@@ -719,7 +714,73 @@ resp_attr.tbl <- cawi.df %>%
   modelsummary::datasummary_balance(~1, data = ., output = "gt") 
 
 # Robustness ----
+## Nondifferentation ----
+# Variance in individual responses 
+cawi_long_nondiff.df <- cawi_long.df %>%
+  group_by(intnr) %>%
+  mutate(var_resp = var(rating)) %>%
+  ungroup() %>%
+  filter(!var_resp == 0)
+
+# Share of nondifferent responses
+100 - (nrow(cawi_long_nondiff.df) / nrow(cawi_long.df) * 100) # 11.6%
+
+# Model
+model_nondiff.df <- tibble(
+  model = c("base", "main", "int: all", "int: sig", "respondent", "int: cross-level"),
+  dv = "rating ~ ",
+  iv = c(
+    "1",
+    "mehrstaatigkeit_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig + geschlecht_vig",
+    "(mehrstaatigkeit_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig + geschlecht_vig)^2",
+    "mehrstaatigkeit_vig*geschlecht_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig*geschlecht_vig + herkunft_vig",
+    "erwerbstätigkeit_vig + sprachkenntnisse_vig + herkunft_vig + aufenthaltsdauer_vig*geschlecht_vig + mehrstaatigkeit_vig*geschlecht_vig + pol_resp + w2_resp + w8_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + alter_resp + geschlecht_resp",
+    "mehrstaatigkeit_vig*alter_resp + mehrstaatigkeit_vig*w8_resp + erwerbstätigkeit_vig*w8_resp + sprachkenntnisse_vig + aufenthaltsdauer_vig*geschlecht_vig + mehrstaatigkeit_vig*geschlecht_vig + herkunft_vig*w8_resp + pol_resp + w2_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + geschlecht_resp"),
+  random = c(" + (1 | intnr) + (1 | vignette)")) %>%
+  mutate(formula = str_c(dv, iv, random))
+
+# Run models
+model_nondiff.df <- model_nondiff.df %>%
+  mutate(result = map(formula, ~lmerTest::lmer(formula = .x, data = cawi_long_nondiff.df)))
+
+# Summary
+modelsummary(model_nondiff.df$result, stars = TRUE)
+
+## Block effects ----
+# Check block effects by including 'block' as a dummy variable (Ausprug/Hinz 2015: 91)
+model_block.df <- tibble(
+  model = c("base", "main", "int: all", "int: sig", "respondent", "int: cross-level"),
+  dv = "rating ~ ",
+  iv = c(
+    "1",
+    "mehrstaatigkeit_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig + geschlecht_vig",
+    "(mehrstaatigkeit_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig + geschlecht_vig)^2",
+    "mehrstaatigkeit_vig*geschlecht_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig*geschlecht_vig + herkunft_vig",
+    "erwerbstätigkeit_vig + sprachkenntnisse_vig + herkunft_vig + aufenthaltsdauer_vig*geschlecht_vig + mehrstaatigkeit_vig*geschlecht_vig + pol_resp + w2_resp + w8_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + alter_resp + geschlecht_resp",
+    "mehrstaatigkeit_vig*alter_resp + mehrstaatigkeit_vig*w8_resp + erwerbstätigkeit_vig*w8_resp + sprachkenntnisse_vig + aufenthaltsdauer_vig*geschlecht_vig + mehrstaatigkeit_vig*geschlecht_vig + herkunft_vig*w8_resp + pol_resp + w2_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + geschlecht_resp"),
+  block = c(" + block"),
+  random = c(" + (1 | intnr) + (1 | vignette)")) %>%
+  mutate(formula = str_c(dv, iv, block, random))
+
+# Run models
+model_block.df <- model_block.df %>%
+  mutate(result = map(formula, ~lmerTest::lmer(formula = .x, data = cawi_long.df)))
+
+# Extract coefs
+model_block.df <- model_block.df %>%
+  mutate(tidy_result = map(result, ~.x %>%
+                             broom.mixed::tidy(conf.int = TRUE) %>%
+                             mutate(stars = gtools::stars.pval(p.value))))
+
+# Significant interactions
+model_block.df %>%
+  select(model, tidy_result) %>%
+  unnest(tidy_result) %>%
+  filter(str_detect(term, "block") & stars %in% c("***", "**", "*"))
+
 ## Tobit model ----
+require(GLMMadaptive)
+
 # Information on censoring
 cawi_long.df <- cawi_long.df %>%
   mutate(ind = case_when(

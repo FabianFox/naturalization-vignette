@@ -286,8 +286,12 @@ model.df <- model.df %>%
                      enframe() %>%
                      mutate(value = unlist(value))))
 
+# Regression table
+modelsummary(model.df[model.df$model %in% c("base", "main", "int: sig", 
+                                            "respondent", "int: cross-level"),]$result)
+
 # LR-Test for main and two-way interactions
-lr_test.df <- model.df %>%
+lr_test.tbl <- model.df %>%
   filter(model %in% c("main", "int: all")) %>%
   select(model, result) %>%
   mutate(lrtest = map(result, ~.x %>%
@@ -676,9 +680,10 @@ cross_lvl.fig <- wrap_plots(
 
 # Description ----
 #### Orthogonality ----
-cawi_long.df %>%
+orthogonality.tbl <- cawi_long.df %>%
   select(ends_with("_vig")) %>%
   mutate(across(where(is.factor), as.numeric)) %>%
+  rename(!!!vig_names) %>%
   cor() %>%
   as.data.frame() %>%
   rownames_to_column() %>%
@@ -686,7 +691,7 @@ cawi_long.df %>%
   fmt_number(decimals = 3)
 
 #### Balance ----
-balance_tbl <- cawi_long.df %>%
+balance.tbl <- cawi_long.df %>%
   select(ends_with("_vig")) %>%
   rename(!!!vig_names) %>%
   # warning due to unused levels when splicing
@@ -831,6 +836,11 @@ ggsave(plot = cross_lvl.fig, filename = here("figures", "cross_lvl_interactions.
        device = ragg::agg_png(res = 300), bg = "white",
        width = 30, height = 24, units = "cm")
 
-gtsave(balance_tbl, filename = here("output", "vignette-dimensions.rtf"))
+# Tables
+gtsave(balance.tbl, filename = here("output", "vignette-dimensions.rtf"))
+
+gtsave(orthogonality.tbl, filename = here("output", "orthogonality.rtf"))
+
+gtsave(lr_test.tbl, filename = here("output", "lrtest.rtf"))
 
 gtsave(resp_attr.tbl, filename = here("output", "respondent_attributes.rtf"))

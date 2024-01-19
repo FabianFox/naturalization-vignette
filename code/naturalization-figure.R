@@ -39,12 +39,18 @@ nat.fig <- nat.df %>%
              size = .5, 
              curvature = .3) +
   # ZuwandG
-  geom_curve(aes(x = 2008.5, xend = 2007, y = 150000, yend = 120000), 
-             arrow = arrow(type = "closed", length = unit(0.02, "npc")),
-             size = .5, 
-             curvature = .3) +
+  annotate("segment", x = 2006, xend = 2005, y = 148000, yend = 130000, 
+           arrow = arrow(type = "closed", length = unit(0.02, "npc"))) +
+  annotate("segment", x = 2007, xend = 2007, y = 148000, yend = 120000, 
+           arrow = arrow(type = "closed", length = unit(0.02, "npc"))) +
   # RuStAG
   annotate("segment", x = 1993, xend = 1996, y = 150000, yend = 150000, 
+           arrow = arrow(type = "closed", length = unit(0.02, "npc"))) +
+  # Brexit
+  annotate("segment", x = 2015, xend = 2018.5, y = 158000, yend = 130000, 
+           arrow = arrow(type = "closed", length = unit(0.02, "npc"))) +
+  # Syrian refugees
+  annotate("segment", x = 2021, xend = 2021.5, y = 190000, yend = 170000, 
            arrow = arrow(type = "closed", length = unit(0.02, "npc"))) +
   # AuslG
   annotate("text", x = 1993, y = 170000, label = "RuStAG (1913)\nAuslG (1990)", 
@@ -53,8 +59,14 @@ nat.fig <- nat.df %>%
   annotate("text", x = 2001, y = 200000, label = "StAG (2000)", 
            hjust = 0, family = "Roboto Condensed", size = 6) +
   # ZuwandG
-  annotate("text", x = 2008.5, y = 150000, label = "ZuwandG (2007)", 
-           hjust = 0, family = "Roboto Condensed", size = 6) +
+  annotate("text", x = 2006.5, y = 160000, label = "ZuwandG\n(2004, 2007)", 
+           hjust = .5, family = "Roboto Condensed", size = 6) +
+  # Brexit
+  annotate("text", x = 2015, y = 175000, label = "Naturalization\nof British citizens\n('Brexit effect')", 
+           hjust = 0.5, family = "Roboto Condensed", size = 6) +
+  # Syrian refugees
+  annotate("text", x = 2021, y = 200000, label = "Naturalization\nof Syrian refugees", 
+           hjust = 0.5, family = "Roboto Condensed", size = 6) +
   scale_y_continuous(labels = scales::label_number(big.mark = ",")) +
   scale_x_continuous(labels = seq(1995, 2022, 5), breaks = seq(1995, 2022, 5)) +
   labs(x = "", y = "") +

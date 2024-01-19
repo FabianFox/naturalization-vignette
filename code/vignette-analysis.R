@@ -16,6 +16,7 @@ conflicts_prefer(
   dplyr::select)
 
 ## Renaming ----
+# Replaces German variable names and levels with English ones
 ### Vignettes ----
 # Vignette names
 {
@@ -714,8 +715,7 @@ resp_attr.tbl <- cawi.df %>%
   select(!!!resp_names) %>% 
   select(-c(Age, `Federal state`)) %>%
   mutate(across(where(is.factor), ~fct_recode(., !!!resp_levels)),
-         Citizenship = fct_na_value_to_level(Citizenship, level = "Prefer not say"),
-         ) %>%
+         Citizenship = fct_na_value_to_level(Citizenship, level = "Prefer not say")) %>%
   modelsummary::datasummary_balance(~1, data = ., output = "gt") 
 
 # Robustness ----

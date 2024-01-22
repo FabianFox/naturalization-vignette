@@ -288,8 +288,43 @@ model.df <- model.df %>%
                      mutate(value = unlist(value))))
 
 # Regression table
-modelsummary(model.df[model.df$model %in% c("base", "main", "int: sig", 
-                                            "respondent", "int: cross-level"),]$result)
+mlm.tbl <- modelsummary(model.df[model.df$model %in% c("base", "main", "int: sig", 
+                                            "respondent", "int: cross-level"),]$result,
+             stars = TRUE,
+             coef_map = c("(Intercept)" = "Intercept",
+                          "geschlecht_vigmännlich" = "Gender: Male (ref.: Female)",
+                          "herkunft_vigTürkei" = "Country of origin: Turkey (ref.: Great Britain)",
+                          "herkunft_vigIndien" = "India",
+                          "aufenthaltsdauer_vig5 Jahre" = "Duration of residence: 5 years (ref.: 3 years)",
+                          "aufenthaltsdauer_vig10 Jahre" = "10 years",
+                          "sprachkenntnisse_vigsehr gut" = "Language proficiency: Very good (ref.: Little)",
+                          "erwerbstätigkeit_vigberufstätig" = "Employment: Employed (ref.: Seeking employment)",
+                          "mehrstaatigkeit_vigaufgeben" = "Current citizenship: Renounce (ref.: Retain)",
+                          "mehrstaatigkeit_vigaufgeben:geschlecht_vigmännlich" = "Current citizenship: Renounce × Gender: Male",
+                          "geschlecht_vigmännlich:aufenthaltsdauer_vig5 Jahre" = "Gender: Male × Residence period: 5 years",
+                          "geschlecht_vigmännlich:aufenthaltsdauer_vig10 Jahre" = "Gender: Male × Residence period: 10 years",
+                          "geschlecht_respmännlich" = "Gender (resp.): Male",
+                          "alter_resp" = "Age (resp.)",
+                          "bildung_respRealschulabschluss, POS (10)" = "Education (resp.): Realschule (10) (ref.: Hauptschule (8/9))",
+                          "bildung_respAbitur, Fachhochschulreife" = "Abitur, Fachhochschulreife",
+                          "bildung_respkein Schulabschluss/in Beschulung" = "No diploma/in school",
+                          "staatsbürgerschaft_respdoppelte Staatsangehörigkeit" = "Citizenship (resp.): Dual citizenship (ref.: Only German)",
+                          "staatsbürgerschaft_respkeine deutsche Staatsangehörigkeit" = "Third country",
+                          "region_respOstdeutschland" = "Region (resp.): East Germany (ref.: West Germany)",
+                          "w8_resp" = "Immigration concern (resp.)",
+                          "w2_resp" = "Economic concern (resp.)",
+                          "pol_respSPD" = "Party preference (resp.): SPD (ref.: CDU/CSU)",
+                          "pol_respBündnis 90 / Die Grünen" = "Bündnis 90 / Die Grünen",
+                          "pol_respFDP" = "FDP",
+                          "pol_respDie Linke" = "Die Linke",
+                          "pol_respAfD" = "AfD",
+                          "pol_respAndere, und zwar:" = "Other",
+                          "pol_respKeine Partei" = "No preference",
+                          "mehrstaatigkeit_vigaufgeben:alter_resp" = "Current citizenship: Renounce × Age (resp.)",
+                          "w8_resp:herkunft_vigTürkei" = "Country of origin: Turkey × Immigration concern (resp.)",
+                          "w8_resp:herkunft_vigIndien" = "Country of origin: India × Immigration concern (resp.)",
+                          "w8_resp:erwerbstätigkeit_vigberufstätig" = "Employment: Employed × Immigration concern (resp.)",
+                          "mehrstaatigkeit_vigaufgeben:w8_resp" = "Current citizenship: Renounce × Immigration concern (resp.)"))
 
 # LR-Test for main and two-way interactions
 lr_test.tbl <- model.df %>%
@@ -748,8 +783,44 @@ model_nondiff.df <- tibble(
 model_nondiff.df <- model_nondiff.df %>%
   mutate(result = map(formula, ~lmerTest::lmer(formula = .x, data = cawi_long_nondiff.df)))
 
-# Summary
-modelsummary(model_nondiff.df$result, stars = TRUE)
+# Regression table
+mlm_nondiff.tbl <- modelsummary(model_nondiff.df[model_nondiff.df$model %in% c("base", "main", "int: sig", 
+                                                       "respondent", "int: cross-level"),]$result,
+                        stars = TRUE,
+                        coef_map = c("(Intercept)" = "Intercept",
+                                     "geschlecht_vigmännlich" = "Gender: Male (ref.: Female)",
+                                     "herkunft_vigTürkei" = "Country of origin: Turkey (ref.: Great Britain)",
+                                     "herkunft_vigIndien" = "India",
+                                     "aufenthaltsdauer_vig5 Jahre" = "Duration of residence: 5 years (ref.: 3 years)",
+                                     "aufenthaltsdauer_vig10 Jahre" = "10 years",
+                                     "sprachkenntnisse_vigsehr gut" = "Language proficiency: Very good (ref.: Little)",
+                                     "erwerbstätigkeit_vigberufstätig" = "Employment: Employed (ref.: Seeking employment)",
+                                     "mehrstaatigkeit_vigaufgeben" = "Current citizenship: Renounce (ref.: Retain)",
+                                     "mehrstaatigkeit_vigaufgeben:geschlecht_vigmännlich" = "Current citizenship: Renounce × Gender: Male",
+                                     "geschlecht_vigmännlich:aufenthaltsdauer_vig5 Jahre" = "Gender: Male × Residence period: 5 years",
+                                     "geschlecht_vigmännlich:aufenthaltsdauer_vig10 Jahre" = "Gender: Male × Residence period: 10 years",
+                                     "geschlecht_respmännlich" = "Gender (resp.): Male",
+                                     "alter_resp" = "Age (resp.)",
+                                     "bildung_respRealschulabschluss, POS (10)" = "Education (resp.): Realschule (10) (ref.: Hauptschule (8/9))",
+                                     "bildung_respAbitur, Fachhochschulreife" = "Abitur, Fachhochschulreife",
+                                     "bildung_respkein Schulabschluss/in Beschulung" = "No diploma/in school",
+                                     "staatsbürgerschaft_respdoppelte Staatsangehörigkeit" = "Citizenship (resp.): Dual citizenship (ref.: Only German)",
+                                     "staatsbürgerschaft_respkeine deutsche Staatsangehörigkeit" = "Third country",
+                                     "region_respOstdeutschland" = "Region (resp.): East Germany (ref.: West Germany)",
+                                     "w8_resp" = "Immigration concern (resp.)",
+                                     "w2_resp" = "Economic concern (resp.)",
+                                     "pol_respSPD" = "Party preference (resp.): SPD (ref.: CDU/CSU)",
+                                     "pol_respBündnis 90 / Die Grünen" = "Bündnis 90 / Die Grünen",
+                                     "pol_respFDP" = "FDP",
+                                     "pol_respDie Linke" = "Die Linke",
+                                     "pol_respAfD" = "AfD",
+                                     "pol_respAndere, und zwar:" = "Other",
+                                     "pol_respKeine Partei" = "No preference",
+                                     "mehrstaatigkeit_vigaufgeben:alter_resp" = "Current citizenship: Renounce × Age (resp.)",
+                                     "w8_resp:herkunft_vigTürkei" = "Country of origin: Turkey × Immigration concern (resp.)",
+                                     "w8_resp:herkunft_vigIndien" = "Country of origin: India × Immigration concern (resp.)",
+                                     "w8_resp:erwerbstätigkeit_vigberufstätig" = "Employment: Employed × Immigration concern (resp.)",
+                                     "mehrstaatigkeit_vigaufgeben:w8_resp" = "Current citizenship: Renounce × Immigration concern (resp.)"))
 
 ## Block effects ----
 # Check block effects by including 'block' as a dummy variable (Ausprug/Hinz 2015: 91)
@@ -814,6 +885,45 @@ tobit.df <- tobit.df %>%
                                                           data = cawi_long.df,
                                                           family = censored.normal())))
 
+# Regression table
+mlm_tobit.tbl <- modelsummary(tobit.df[tobit.df$model %in% c("base", "main", "int: sig", 
+                                                                       "respondent", "int: cross-level"),]$result,
+                                stars = TRUE,
+                                coef_map = c("(Intercept)" = "Intercept",
+                                             "geschlecht_vigmännlich" = "Gender: Male (ref.: Female)",
+                                             "herkunft_vigTürkei" = "Country of origin: Turkey (ref.: Great Britain)",
+                                             "herkunft_vigIndien" = "India",
+                                             "aufenthaltsdauer_vig5 Jahre" = "Duration of residence: 5 years (ref.: 3 years)",
+                                             "aufenthaltsdauer_vig10 Jahre" = "10 years",
+                                             "sprachkenntnisse_vigsehr gut" = "Language proficiency: Very good (ref.: Little)",
+                                             "erwerbstätigkeit_vigberufstätig" = "Employment: Employed (ref.: Seeking employment)",
+                                             "mehrstaatigkeit_vigaufgeben" = "Current citizenship: Renounce (ref.: Retain)",
+                                             "mehrstaatigkeit_vigaufgeben:geschlecht_vigmännlich" = "Current citizenship: Renounce × Gender: Male",
+                                             "geschlecht_vigmännlich:aufenthaltsdauer_vig5 Jahre" = "Gender: Male × Residence period: 5 years",
+                                             "geschlecht_vigmännlich:aufenthaltsdauer_vig10 Jahre" = "Gender: Male × Residence period: 10 years",
+                                             "geschlecht_respmännlich" = "Gender (resp.): Male",
+                                             "alter_resp" = "Age (resp.)",
+                                             "bildung_respRealschulabschluss, POS (10)" = "Education (resp.): Realschule (10) (ref.: Hauptschule (8/9))",
+                                             "bildung_respAbitur, Fachhochschulreife" = "Abitur, Fachhochschulreife",
+                                             "bildung_respkein Schulabschluss/in Beschulung" = "No diploma/in school",
+                                             "staatsbürgerschaft_respdoppelte Staatsangehörigkeit" = "Citizenship (resp.): Dual citizenship (ref.: Only German)",
+                                             "staatsbürgerschaft_respkeine deutsche Staatsangehörigkeit" = "Third country",
+                                             "region_respOstdeutschland" = "Region (resp.): East Germany (ref.: West Germany)",
+                                             "w8_resp" = "Immigration concern (resp.)",
+                                             "w2_resp" = "Economic concern (resp.)",
+                                             "pol_respSPD" = "Party preference (resp.): SPD (ref.: CDU/CSU)",
+                                             "pol_respBündnis 90 / Die Grünen" = "Bündnis 90 / Die Grünen",
+                                             "pol_respFDP" = "FDP",
+                                             "pol_respDie Linke" = "Die Linke",
+                                             "pol_respAfD" = "AfD",
+                                             "pol_respAndere, und zwar:" = "Other",
+                                             "pol_respKeine Partei" = "No preference",
+                                             "mehrstaatigkeit_vigaufgeben:alter_resp" = "Current citizenship: Renounce × Age (resp.)",
+                                             "w8_resp:herkunft_vigTürkei" = "Country of origin: Turkey × Immigration concern (resp.)",
+                                             "w8_resp:herkunft_vigIndien" = "Country of origin: India × Immigration concern (resp.)",
+                                             "w8_resp:erwerbstätigkeit_vigberufstätig" = "Employment: Employed × Immigration concern (resp.)",
+                                             "mehrstaatigkeit_vigaufgeben:w8_resp" = "Current citizenship: Renounce × Immigration concern (resp.)"))
+
 # Export ----
 ggsave(plot = main_model.fig, filename = here("figures", "main_mod_coefplot.png"), 
        device = ragg::agg_png(res = 300), bg = "white",
@@ -840,6 +950,10 @@ ggsave(plot = cross_lvl.fig, filename = here("figures", "cross_lvl_interactions.
 gtsave(balance.tbl, filename = here("output", "vignette-dimensions.rtf"))
 
 gtsave(orthogonality.tbl, filename = here("output", "orthogonality.rtf"))
+
+gtsave(mlm.tbl, filename = here("output", "mlm-results.rtf"))
+gtsave(mlm_nondiff.tbl, filename = here("output", "mlm-nondiff-results.rtf"))
+gtsave(mlm_tobit.tbl, filename = here("output", "mlm-tobit-results.rtf"))
 
 gtsave(lr_test.tbl, filename = here("output", "lrtest.rtf"))
 

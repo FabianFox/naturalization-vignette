@@ -134,7 +134,7 @@ allbus21.df <- allbus21.df %>%
       1 ~ "Male",
       2 ~ "Female",
       .default = NA_character_),
-    geschlecht_resp = factor(geschlecht, levels = c("Female", "Male")),
+    geschlecht_resp = factor(geschlecht_resp, levels = c("Female", "Male")),
     bildung_resp = case_match(
       educ,
       c(1, 7) ~ "No school completion/in schooling",
@@ -161,7 +161,7 @@ df <- tibble(
 age.tbl <- df$data %>%
   map_df(., ~freq_tbl(data = .x, var = alter_kat_resp, wt = wghtpew), .id = "source") %>%
   mutate(source = ifelse(source == 1, "ALLBUS", "CAWI"))
-  
+   
 age.fig <- age.tbl %>%
   ggplot(aes(x = alter_kat_resp, y = p, fill = source)) +
   geom_bar(stat = "identity", position = position_dodge()) +

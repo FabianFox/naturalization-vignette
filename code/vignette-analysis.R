@@ -242,17 +242,19 @@ cawi_long.df %>%
             n = n())
 
 # Model ----
-# Check block effects by including 'block' as a dummy variable (Ausprug/Hinz 2015: 91)
 model.df <- tibble(
-  model = c("base", "main", "int: all", "int: sig", "respondent", "int: cross-level"),
+  model = c("base", 
+            "main", 
+            "int: all", 
+            "respondent", 
+            "cross-level"),
   dv = "rating ~ ",
   iv = c(
     "1",
     "mehrstaatigkeit_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig + geschlecht_vig",
     "(mehrstaatigkeit_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig + geschlecht_vig)^2",
-    "mehrstaatigkeit_vig*geschlecht_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig*geschlecht_vig + herkunft_vig",
-    "erwerbstätigkeit_vig + sprachkenntnisse_vig + herkunft_vig + aufenthaltsdauer_vig*geschlecht_vig + mehrstaatigkeit_vig*geschlecht_vig + pol_resp + w2_resp + w8_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + alter_resp + geschlecht_resp",
-    "mehrstaatigkeit_vig*alter_resp + mehrstaatigkeit_vig*w8_resp + erwerbstätigkeit_vig*w8_resp + sprachkenntnisse_vig + aufenthaltsdauer_vig*geschlecht_vig + mehrstaatigkeit_vig*geschlecht_vig + herkunft_vig*w8_resp + pol_resp + w2_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + geschlecht_resp"),
+    "mehrstaatigkeit_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig + geschlecht_vig + pol_resp + w2_resp + w8_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + alter_resp + geschlecht_resp",
+    "mehrstaatigkeit_vig*alter_resp + erwerbstätigkeit_vig*w8_resp + erwerbstätigkeit_vig*w2_resp + sprachkenntnisse_vig + geschlecht_vig + aufenthaltsdauer_vig + herkunft_vig*w8_resp + pol_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + geschlecht_resp"),
   random = c(" + (1 | intnr) + (1 | vignette)")) %>%
   mutate(formula = str_c(dv, iv, random))
 
@@ -288,9 +290,8 @@ model.df <- model.df %>%
                      mutate(value = unlist(value))))
 
 # Regression table
-mlm.tbl <- modelsummary(model.df[model.df$model %in% c("base", "main", "int: sig", 
-                                            "respondent", "int: cross-level"),]$result,
-             stars = TRUE,
+mlm.tbl <- modelsummary(model.df[model.df$model %in% c("base", "main", "respondent", "cross-level"),]$result,
+             stars = TRUE, output = "gt",
              coef_map = c("(Intercept)" = "Intercept",
                           "geschlecht_vigmännlich" = "Gender: Male (ref.: Female)",
                           "herkunft_vigTürkei" = "Country of origin: Turkey (ref.: Great Britain)",
@@ -303,6 +304,8 @@ mlm.tbl <- modelsummary(model.df[model.df$model %in% c("base", "main", "int: sig
                           "mehrstaatigkeit_vigaufgeben:geschlecht_vigmännlich" = "Current citizenship: Renounce × Gender: Male",
                           "geschlecht_vigmännlich:aufenthaltsdauer_vig5 Jahre" = "Gender: Male × Residence period: 5 years",
                           "geschlecht_vigmännlich:aufenthaltsdauer_vig10 Jahre" = "Gender: Male × Residence period: 10 years",
+                        #  "aufenthaltsdauer_vig5 Jahre × geschlecht_vigmännlich" = "Gender: Male × Residence period: 5 years",
+                        #  "aufenthaltsdauer_vig10 Jahre × geschlecht_vigmännlich" = "Gender: Male × Residence period: 10 years",
                           "geschlecht_respmännlich" = "Gender (resp.): Male",
                           "alter_resp" = "Age (resp.)",
                           "bildung_respRealschulabschluss, POS (10)" = "Education (resp.): Realschule (10) (ref.: Hauptschule (8/9))",
@@ -323,142 +326,11 @@ mlm.tbl <- modelsummary(model.df[model.df$model %in% c("base", "main", "int: sig
                           "mehrstaatigkeit_vigaufgeben:alter_resp" = "Current citizenship: Renounce × Age (resp.)",
                           "w8_resp:herkunft_vigTürkei" = "Country of origin: Turkey × Immigration concern (resp.)",
                           "w8_resp:herkunft_vigIndien" = "Country of origin: India × Immigration concern (resp.)",
-                          "w8_resp:erwerbstätigkeit_vigberufstätig" = "Employment: Employed × Immigration concern (resp.)",
-                          "mehrstaatigkeit_vigaufgeben:w8_resp" = "Current citizenship: Renounce × Immigration concern (resp.)"))
-
-# LR-Test for main and two-way interactions
-lr_test.tbl <- model.df %>%
-  filter(model %in% c("main", "int: all")) %>%
-  select(model, result) %>%
-  mutate(lrtest = map(result, ~.x %>%
-                        drop1(., test = "Chisq") %>%
-                        broom::tidy())) %>%
-  select(-result) %>%
-  unnest(lrtest) %>%
-  mutate(stars = gtools::stars.pval(p.value)) %>%
-  select(term, df = NumDF, LRT = statistic, p = p.value) %>%
-  mutate(term = str_replace(string = 
-           stringi::stri_replace_all_fixed(
-             term, 
-             pattern = term, 
-             replacement = names(vig_names), 
-             vectorise_all = F), 
-           pattern = ":", 
-           replacement = " × ")) %>%
-  gt() %>%
-  fmt_number(p, decimals = 4) %>%
-  fmt_number(LRT, decimals = 2)
-
-### All cross-level interactions ----
-# All vignette variables
-vig_vars <- cawi_long.df %>%
-  names() %>%
-  str_subset("_vig")
-
-# All respondent variables
-resp_vars <- cawi_long.df %>%
-  names() %>%
-  str_subset("geschlecht_resp|alter_resp|region_resp|pol_resp|bildung_resp|staatsbürgerschaft_resp|w2_resp|w8_resp")
-
-# Model formula (all combinations)
-models <- tibble(
-  vig_formula = str_c(vig_vars, collapse = " + "),
-  resp_formula = str_c(resp_vars, collapse = " + "),
-  tidyr::expand_grid(vig_vars, resp_vars) %>%
-    mutate(interaction = str_c(vig_vars, ":", resp_vars)) %>%
-    select(interaction)) %>%
-  mutate(formula = str_c("rating ~ ", vig_formula, " + ", resp_formula, " + ", interaction, " + (1 | intnr) + (1 | vignette)")) %>%
-  select(formula)
-
-# Run models
-models <- models %>%
-  mutate(results = map(formula, ~.x %>%
-                         lmerTest::lmer(data = cawi_long.df)))
-
-# Tidy
-models <- models %>%
-  mutate(results = map(results, ~broom.mixed::tidy(.x))) %>%
-  unnest(results) %>%
-  mutate(stars = gtools::stars.pval(p.value)) 
-
-# Significant interactions
-models %>%
-  filter(str_detect(term, ":") & stars %in% c("***", "**", "*"))
-
-# Model with significant cross-level interactions
-clevel.mod <- lmerTest::lmer(rating ~ 
-                               mehrstaatigkeit_vig*w8_resp + 
-                               mehrstaatigkeit_vig*alter_resp + 
-                               mehrstaatigkeit_vig*staatsbürgerschaft_resp +
-                               erwerbstätigkeit_vig*w8_resp + 
-                               herkunft_vig*w8_resp + 
-                               aufenthaltsdauer_vig + geschlecht_vig + pol_resp + 
-                               w2_resp + region_resp + bildung_resp + geschlecht_resp +
-                               (1 | vignette) + (1 | intnr),
-                             data = cawi_long.df)
+                          "erwerbstätigkeit_vigberufstätig:w8_resp" = "Employment: Employed × Immigration concern (resp.)",
+                          "erwerbstätigkeit_vigberufstätig:w2_resp" = "Employment: Employed × Economic concern (resp.)"))
 
 ## Plot ----
 ### Different quantities ----
-# Geschlecht x Mehrstaatigkeit
-gender_x_cit.fig <- marginaleffects::predictions(
-  model.df[model.df$model == "int: sig",]$result[[1]], 
-  newdata = datagrid(geschlecht_vig = unique, 
-                     mehrstaatigkeit_vig = unique),
-  re.form = NA) %>%
-  mutate(geschlecht_vig = factor(geschlecht_vig, 
-                                 levels = c("weiblich", "männlich"), 
-                                 labels = c("female", "male")),
-         mehrstaatigkeit_vig = factor(mehrstaatigkeit_vig, 
-                                      levels = c("behalten", "aufgeben"),
-                                      labels = c("Retain", "Renounce"))) %>%
-  ggplot(aes(x = geschlecht_vig, y = estimate, ymin = conf.low, ymax = conf.high, 
-             shape = mehrstaatigkeit_vig,
-             colour = mehrstaatigkeit_vig)) + 
-  geom_pointrange(position = position_dodge(width = .9), size = 1.5, linewidth = 1.5) +
-  scale_y_continuous(limits = c(3, 4.9)) +
-  scale_colour_manual(values = c("Renounce" = "#969696", "Retain" = "#252525")) +
-  scale_shape_manual(values = c("Renounce" = 15, "Retain" = 16)) +
-  labs(title = "Gender × Dual citizenship", x = "", y = "", colour = "", shape = "") +
-  theme_ipsum(base_family = "Roboto Condensed") +
-  coefplot.theme +
-  theme(legend.text = element_text(size = 16, family = "Roboto Condensed"))
-
-# Reposition legend
-gender_x_cit.fig <- gender_x_cit.fig %>%
-  lemon::reposition_legend(position = "top right")
-
-# Geschlecht x Mehrstaatigkeit
-gender_x_residence.fig <- marginaleffects::predictions(
-  model.df[model.df$model == "int: sig",]$result[[1]], 
-  newdata = datagrid(geschlecht_vig = unique, 
-                     aufenthaltsdauer_vig = unique),
-  re.form = NA) %>%
-  mutate(geschlecht_vig = factor(geschlecht_vig, 
-                                 levels = c("weiblich", "männlich"), 
-                                 labels = c("female", "male")),
-         aufenthaltsdauer_vig = factor(aufenthaltsdauer_vig,
-                                       levels = c("3 Jahre", "5 Jahre", "10 Jahre"),
-                                       labels = c("3 years", "5 years", "10 years"))) %>%
-  ggplot(aes(x = geschlecht_vig, y = estimate, ymin = conf.low, ymax = conf.high, 
-             colour = aufenthaltsdauer_vig, shape = aufenthaltsdauer_vig)) + 
-  geom_pointrange(position = position_dodge(width = .9), size = 1.5, linewidth = 1.5) +
-  scale_y_continuous(limits = c(3, 4.9)) +
-  scale_colour_manual(values = c("3 years" = "#bdbdbd", "5 years" = "#737373", "10 years" = "#252525")) +
-  labs(title = "Gender × Residence period", x = "", y = "", colour = "", shape = "") +
-  theme_ipsum(base_family = "Roboto Condensed") +
-  coefplot.theme +
-  theme(legend.text = element_text(size = 16, family = "Roboto Condensed"))
-
-# Reposition legend
-gender_x_residence.fig <- gender_x_residence.fig %>%
-  lemon::reposition_legend(position = "top right")
-
-# Combine
-twoway_vig.fig <- wrap_plots(
-  gender_x_cit.fig, gender_x_residence.fig,
-  ncol = 2) + 
-  plot_annotation(tag_levels = "A")
-
 ### Coefficient plots ----
 #### Main model ----
 main_model.fig <- modelsummary::modelplot(model.df[model.df$model == "main",]$result, 
@@ -485,9 +357,9 @@ main_model.fig <- modelsummary::modelplot(model.df[model.df$model == "main",]$re
                                                              ))) +
   geom_vline(xintercept = 0, color = "black", linetype = "dashed", linewidth = 1) +
   geom_label(aes(x = estimate, y = term, label = round(estimate, 2)), 
-             family = "Roboto Condensed", vjust = 1.5, size = 4.5) +
+             family = "Roboto Condensed", vjust = 1.5, size = 6) +
   annotate("text",  x = Inf, y = Inf, label = expression(atop(textstyle(paste("Pseudo-R"^2 ," (FE) " == 0.20)), atop(textstyle(paste("Pseudo-R"^2 ," (total) " == 0.52)), atop(scriptscriptstyle(""), textstyle(paste("ICC" == 0.40)))))), 
-           vjust = 1, hjust = 1, parse = TRUE, family = "Roboto Condensed", size = 4.6)  +
+           vjust = 1, hjust = 1, parse = TRUE, family = "Roboto Condensed", size = 5)  +
   scale_x_continuous(breaks = c(-1, -.5, 0, .5, 1, 1.5), 
                      limits = c(-1, 1.5),
                      labels = function(x) str_replace(x, "[.]", ",")) +
@@ -523,7 +395,7 @@ resp_model <- resp_model %>%
                                    ))) +
                          geom_vline(xintercept = 0, color = "black", linetype = "dashed", linewidth = 1) +
                          geom_label(aes(x = estimate, y = term, label = round(estimate, 2)), 
-                                    family = "Roboto Condensed", vjust = 1.5, size = 4.5) +
+                                    family = "Roboto Condensed", vjust = 1.25, size = 6) +
                          scale_x_continuous(breaks = c(-1, -.5, 0, .5, 1, 1.5), 
                                             limits = c(-1, 1.5),
                                             labels = function(x) str_replace(x, "[.]", ",")) +
@@ -562,9 +434,9 @@ resp_model <- resp_model %>%
                                        ))) +
            geom_vline(xintercept = 0, color = "black", linetype = "dashed", linewidth = 1) +
            geom_label(aes(x = estimate, y = term, label = round(estimate, 2)), 
-                      family = "Roboto Condensed", vjust = 1.5, size = 4.5) +
+                      family = "Roboto Condensed", vjust = 1.25, size = 6) +
            annotate("text",  x = Inf, y = Inf, label = expression(atop(textstyle(paste("Pseudo-R"^2 ," (FE) " == 0.29)), atop(textstyle(paste("Pseudo-R"^2 ," (total) " == 0.53)), atop(scriptscriptstyle(""), textstyle(paste("ICC" == 0.33)))))), 
-                    vjust = 1, hjust = 1, parse = TRUE, family = "Roboto Condensed", size = 4.6)  +
+                    vjust = 1, hjust = 1, parse = TRUE, family = "Roboto Condensed", size = 5)  +
            scale_x_continuous(breaks = c(-1, -.5, 0, .5, 1, 1.5), 
                               limits = c(-1.5, 1.5),
                               labels = function(x) str_replace(x, "[.]", ",")) +
@@ -578,7 +450,7 @@ respondent_model.fig <- wrap_plots(resp_model$plot)
 ##### Age x Dual citizenship ----
 # Marginal effects
 age_dualcit_interaction.df <- marginaleffects::predictions(
-  model.df[model.df$model == "int: cross-level",]$result[[1]], 
+  model.df[model.df$model == "cross-level",]$result[[1]], 
   newdata = datagrid(alter_resp = unique, 
                      mehrstaatigkeit_vig = c("behalten", "aufgeben")),
   re.form = NA) 
@@ -590,7 +462,7 @@ age_dualcit_interaction.fig <- age_dualcit_interaction.df %>%
   geom_line(aes(linetype = mehrstaatigkeit_vig), size = 1.5) +
   geom_ribbon(alpha = .5) +
   annotate("text", x = 20, y = 4.65, label = "Renounce", size = 7, hjust = 0) +
-  annotate("text", x = 70, y = 2.75, label = "Retain", size = 7, hjust = 0) +
+  annotate("text", x = 65, y = 2.75, label = "Retain", size = 7, hjust = 0) +
   scale_x_continuous(breaks = seq(20, 90, 10)) +
   scale_colour_manual(values = rep("black", 2)) +
   scale_y_continuous(limits = c(2.5, 5.5)) +
@@ -598,7 +470,8 @@ age_dualcit_interaction.fig <- age_dualcit_interaction.df %>%
   labs(x = "Age", y = "", title = "Dual citizenship (L1) × Age (L2)") +
   theme_ipsum(base_family = "Roboto Condensed") +
   coefplot.theme +
-  theme(legend.position = "none")
+  theme(legend.position = "none",
+        axis.title.x = element_text(size = 14))
 
 # Meaningful comparisons
 age_dualcit_compare.df <- age_dualcit_interaction.df %>%
@@ -617,13 +490,13 @@ age_dualcit_compare.df %>%
 
 # Marginal effect
 avg_slopes(
-  model.df[model.df$model == "int: cross-level",]$result[[1]],
+  model.df[model.df$model == "cross-level",]$result[[1]],
   variables = "alter_resp",
   by = "mehrstaatigkeit_vig", re.form = NA)
 
 ##### Concerns x Country of origin ----
 migconcern_origin_interaction.df <- marginaleffects::predictions(
-  model.df[model.df$model == "int: cross-level",]$result[[1]], 
+  model.df[model.df$model == "cross-level",]$result[[1]], 
   newdata = datagrid(w8_resp = unique, 
                      herkunft_vig = unique),
   re.form = NA)
@@ -638,12 +511,13 @@ migconcern_origin_interaction.fig <- migconcern_origin_interaction.df %>%
   annotate("text", x = 5, y = 5.25, label = "United\nKingdom", size = 7, hjust = 0) +
   annotate("text", x = 5, y = 3.5, label = "Turkey", size = 7, hjust = 0) +
   scale_x_continuous(breaks = seq(1, 7, 1)) +
-  scale_y_continuous(limits = c(2.5, 5.5)) +
+  scale_y_continuous(limits = c(2.5, 5.6)) +
   scale_fill_manual(values = c("Großbritannien" = "#bdbdbd", "Türkei" = "#252525")) +
   labs(x = "Migration concerns", y = "", title = "Country of origin (L1) × Migration concerns (L2)") +
   theme_ipsum(base_family = "Roboto Condensed") +
   coefplot.theme +
-  theme(legend.position = "none") 
+  theme(legend.position = "none",
+        axis.title.x = element_text(size = 14)) 
 
 # Meaningful comparisons
 migconcern_origin_compare.df <- migconcern_origin_interaction.df %>%
@@ -661,13 +535,13 @@ migconcern_origin_compare.df %>%
 
 # Marginal effect
 avg_slopes(
-  model.df[model.df$model == "int: cross-level",]$result[[1]],
+  model.df[model.df$model == "cross-level",]$result[[1]],
   variables = "w8_resp",
   by = "herkunft_vig", re.form = NA)
 
-##### Concerns x Employment ----
+##### MigConcerns x Employment ----
 migconcern_employment_interaction.df <- marginaleffects::predictions(
-  model.df[model.df$model == "int: cross-level",]$result[[1]], 
+  model.df[model.df$model == "cross-level",]$result[[1]], 
   newdata = datagrid(w8_resp = unique, 
                      erwerbstätigkeit_vig = unique),
   re.form = NA) 
@@ -681,12 +555,13 @@ migconcern_employment_interaction.fig <- migconcern_employment_interaction.df %>
   annotate("text", x = 4.8, y = 4.8, label = "Employed", size = 7, hjust = 0) +
   annotate("text", x = 3, y = 3, label = "Seeking\nemployment", size = 7, hjust = 0) +
   scale_x_continuous(breaks = seq(1, 7, 1)) +
-  scale_y_continuous(limits = c(2.5, 5.5)) +
+  scale_y_continuous(limits = c(2.5, 5.6)) +
   scale_fill_manual(values = c("arbeitssuchend" = "#bdbdbd", "berufstätig" = "#252525")) +
   labs(x = "Migration concerns", y = "", title = "Employment (L1) × Migration concerns (L2)") +
   theme_ipsum(base_family = "Roboto Condensed") +
   coefplot.theme +
-  theme(legend.position = "none")   
+  theme(legend.position = "none",
+        axis.title.x = element_text(size = 14))
 
 # Meaningful comparisons
 migconcern_employment_compare.df <- migconcern_employment_interaction.df %>%
@@ -702,15 +577,40 @@ migconcern_employment_compare.df %>%
 
 # Marginal effect
 avg_slopes(
-  model.df[model.df$model == "int: cross-level",]$result[[1]],
+  model.df[model.df$model == "cross-level",]$result[[1]],
   variables = "w8_resp",
   by = "herkunft_vig", re.form = NA)
+
+##### EconConcerns x Employment ----
+econ_concern_employment_interaction.df <- marginaleffects::predictions(
+  model.df[model.df$model == "cross-level",]$result[[1]], 
+  newdata = datagrid(w2_resp = unique, 
+                     erwerbstätigkeit_vig = unique),
+  re.form = NA) 
+
+# Interaction plot
+econ_concern_employment_interaction.fig <- econ_concern_employment_interaction.df %>% 
+  ggplot(aes(x = w2_resp, y = estimate, ymin = conf.low, ymax = conf.high, 
+             fill = erwerbstätigkeit_vig)) + 
+  geom_line(aes(linetype = erwerbstätigkeit_vig), size = 1.5) +
+  geom_ribbon(alpha = .5) +
+  annotate("text", x = 4.9, y = 4.8, label = "Employed", size = 7, hjust = 0) +
+  annotate("text", x = 2, y = 2.9, label = "Seeking\nemployment", size = 7, hjust = 0) +
+  scale_x_continuous(breaks = seq(1, 7, 1)) +
+  scale_y_continuous(limits = c(2.5, 5.6)) +
+  scale_fill_manual(values = c("arbeitssuchend" = "#bdbdbd", "berufstätig" = "#252525")) +
+  labs(x = "Economic concerns", y = "", title = "Employment (L1) × Economic concerns (L2)") +
+  theme_ipsum(base_family = "Roboto Condensed") +
+  coefplot.theme +
+  theme(legend.position = "none",
+        axis.title.x = element_text(size = 14))
 
 # Combine
 cross_lvl.fig <- wrap_plots(
   age_dualcit_interaction.fig,
   migconcern_origin_interaction.fig, 
   migconcern_employment_interaction.fig,
+  econ_concern_employment_interaction.fig,
   ncol = 2) + 
   plot_annotation(tag_levels = "A") 
 
@@ -767,15 +667,14 @@ cawi_long_nondiff.df <- cawi_long.df %>%
 
 # Model
 model_nondiff.df <- tibble(
-  model = c("base", "main", "int: all", "int: sig", "respondent", "int: cross-level"),
+  model = c("base", "main", "int: all", "respondent", "cross-level"),
   dv = "rating ~ ",
   iv = c(
     "1",
     "mehrstaatigkeit_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig + geschlecht_vig",
     "(mehrstaatigkeit_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig + geschlecht_vig)^2",
-    "mehrstaatigkeit_vig*geschlecht_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig*geschlecht_vig + herkunft_vig",
-    "erwerbstätigkeit_vig + sprachkenntnisse_vig + herkunft_vig + aufenthaltsdauer_vig*geschlecht_vig + mehrstaatigkeit_vig*geschlecht_vig + pol_resp + w2_resp + w8_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + alter_resp + geschlecht_resp",
-    "mehrstaatigkeit_vig*alter_resp + mehrstaatigkeit_vig*w8_resp + erwerbstätigkeit_vig*w8_resp + sprachkenntnisse_vig + aufenthaltsdauer_vig*geschlecht_vig + mehrstaatigkeit_vig*geschlecht_vig + herkunft_vig*w8_resp + pol_resp + w2_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + geschlecht_resp"),
+    "mehrstaatigkeit_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig + geschlecht_vig + pol_resp + w2_resp + w8_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + alter_resp + geschlecht_resp",
+    "mehrstaatigkeit_vig*alter_resp + erwerbstätigkeit_vig*w8_resp + erwerbstätigkeit_vig*w2_resp + sprachkenntnisse_vig + geschlecht_vig + aufenthaltsdauer_vig + herkunft_vig*w8_resp + pol_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + geschlecht_resp"),
   random = c(" + (1 | intnr) + (1 | vignette)")) %>%
   mutate(formula = str_c(dv, iv, random))
 
@@ -784,9 +683,9 @@ model_nondiff.df <- model_nondiff.df %>%
   mutate(result = map(formula, ~lmerTest::lmer(formula = .x, data = cawi_long_nondiff.df)))
 
 # Regression table
-mlm_nondiff.tbl <- modelsummary(model_nondiff.df[model_nondiff.df$model %in% c("base", "main", "int: sig", 
-                                                       "respondent", "int: cross-level"),]$result,
-                        stars = TRUE,
+mlm_nondiff.tbl <- modelsummary(model_nondiff.df[model_nondiff.df$model %in% c("base", "main",
+                                                       "respondent", "cross-level"),]$result,
+                        stars = TRUE, output = "gt",
                         coef_map = c("(Intercept)" = "Intercept",
                                      "geschlecht_vigmännlich" = "Gender: Male (ref.: Female)",
                                      "herkunft_vigTürkei" = "Country of origin: Turkey (ref.: Great Britain)",
@@ -799,6 +698,8 @@ mlm_nondiff.tbl <- modelsummary(model_nondiff.df[model_nondiff.df$model %in% c("
                                      "mehrstaatigkeit_vigaufgeben:geschlecht_vigmännlich" = "Current citizenship: Renounce × Gender: Male",
                                      "geschlecht_vigmännlich:aufenthaltsdauer_vig5 Jahre" = "Gender: Male × Residence period: 5 years",
                                      "geschlecht_vigmännlich:aufenthaltsdauer_vig10 Jahre" = "Gender: Male × Residence period: 10 years",
+                                     #  "aufenthaltsdauer_vig5 Jahre × geschlecht_vigmännlich" = "Gender: Male × Residence period: 5 years",
+                                     #  "aufenthaltsdauer_vig10 Jahre × geschlecht_vigmännlich" = "Gender: Male × Residence period: 10 years",
                                      "geschlecht_respmännlich" = "Gender (resp.): Male",
                                      "alter_resp" = "Age (resp.)",
                                      "bildung_respRealschulabschluss, POS (10)" = "Education (resp.): Realschule (10) (ref.: Hauptschule (8/9))",
@@ -819,21 +720,20 @@ mlm_nondiff.tbl <- modelsummary(model_nondiff.df[model_nondiff.df$model %in% c("
                                      "mehrstaatigkeit_vigaufgeben:alter_resp" = "Current citizenship: Renounce × Age (resp.)",
                                      "w8_resp:herkunft_vigTürkei" = "Country of origin: Turkey × Immigration concern (resp.)",
                                      "w8_resp:herkunft_vigIndien" = "Country of origin: India × Immigration concern (resp.)",
-                                     "w8_resp:erwerbstätigkeit_vigberufstätig" = "Employment: Employed × Immigration concern (resp.)",
-                                     "mehrstaatigkeit_vigaufgeben:w8_resp" = "Current citizenship: Renounce × Immigration concern (resp.)"))
+                                     "erwerbstätigkeit_vigberufstätig:w8_resp" = "Employment: Employed × Immigration concern (resp.)",
+                                     "erwerbstätigkeit_vigberufstätig:w2_resp" = "Employment: Employed × Economic concern (resp.)"))
 
 ## Block effects ----
 # Check block effects by including 'block' as a dummy variable (Ausprug/Hinz 2015: 91)
 model_block.df <- tibble(
-  model = c("base", "main", "int: all", "int: sig", "respondent", "int: cross-level"),
+  model = c("base", "main", "int: all", "respondent", "cross-level"),
   dv = "rating ~ ",
   iv = c(
     "1",
     "mehrstaatigkeit_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig + geschlecht_vig",
     "(mehrstaatigkeit_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig + geschlecht_vig)^2",
-    "mehrstaatigkeit_vig*geschlecht_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig*geschlecht_vig + herkunft_vig",
-    "erwerbstätigkeit_vig + sprachkenntnisse_vig + herkunft_vig + aufenthaltsdauer_vig*geschlecht_vig + mehrstaatigkeit_vig*geschlecht_vig + pol_resp + w2_resp + w8_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + alter_resp + geschlecht_resp",
-    "mehrstaatigkeit_vig*alter_resp + mehrstaatigkeit_vig*w8_resp + erwerbstätigkeit_vig*w8_resp + sprachkenntnisse_vig + aufenthaltsdauer_vig*geschlecht_vig + mehrstaatigkeit_vig*geschlecht_vig + herkunft_vig*w8_resp + pol_resp + w2_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + geschlecht_resp"),
+    "mehrstaatigkeit_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig + geschlecht_vig + pol_resp + w2_resp + w8_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + alter_resp + geschlecht_resp",
+    "mehrstaatigkeit_vig*alter_resp + erwerbstätigkeit_vig*w8_resp + erwerbstätigkeit_vig*w2_resp + sprachkenntnisse_vig + geschlecht_vig + aufenthaltsdauer_vig + herkunft_vig*w8_resp + pol_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + geschlecht_resp"),
   block = c(" + block"),
   random = c(" + (1 | intnr) + (1 | vignette)")) %>%
   mutate(formula = str_c(dv, iv, block, random))
@@ -854,6 +754,160 @@ model_block.df %>%
   unnest(tidy_result) %>%
   filter(str_detect(term, "block") & stars %in% c("***", "**", "*"))
 
+## Two-way interactions ----
+### LR-Test ----
+# for main and two-way interactions using (standard) p-values and Bonferroni and FDR adjustments
+# Switch to sum-coding
+options(contrasts = c("contr.sum", "contr.poly"))
+
+# Conduct test
+lr_test.tbl <- model.df %>%
+  filter(model %in% c("main", "int: all")) %>%
+  select(model, result) %>%
+  mutate(lrtest = map(result, ~.x %>%
+                        drop1(., test = "Chisq") %>%
+                        broom::tidy())) %>%
+  select(-result) %>%
+  unnest(lrtest) %>%
+  mutate(p_bonf = p.adjust(p.value, method = "bonferroni"),  
+         p_fdr = p.adjust(p.value, method = "fdr"), 
+         stars_bonf = gtools::stars.pval(p_bonf),
+         stars_fdr = gtools::stars.pval(p_fdr), 
+         stars = gtools::stars.pval(p.value)) %>%
+  select(term, df = NumDF, LRT = statistic, starts_with("p")) %>% # , contains("stars")
+  mutate(term = str_replace(string = 
+                              stringi::stri_replace_all_fixed(
+                                term, 
+                                pattern = term, 
+                                replacement = names(vig_names), 
+                                vectorise_all = F), 
+                            pattern = ":", 
+                            replacement = " × ")) %>%
+  gt() %>%
+  fmt_number(columns = starts_with("p"), decimals = 4) %>%
+  fmt_number(LRT, decimals = 2)
+
+# Switch back
+options(contrasts = c("contr.treatment", "contr.poly"))
+
+### Model ----
+model_int.df <- tibble(
+  model = c("int: sig", 
+            "int: sig + respondent", 
+            "int: sig + cross-level"),
+  dv = "rating ~ ",
+  iv = c(
+    "mehrstaatigkeit_vig*geschlecht_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig*geschlecht_vig + herkunft_vig",
+    "mehrstaatigkeit_vig + geschlecht_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig*geschlecht_vig + herkunft_vig + pol_resp + w2_resp + w8_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + alter_resp + geschlecht_resp",
+    "mehrstaatigkeit_vig*alter_resp + erwerbstätigkeit_vig*w8_resp + erwerbstätigkeit_vig*w2_resp + sprachkenntnisse_vig + geschlecht_vig*aufenthaltsdauer_vig + mehrstaatigkeit_vig*geschlecht_vig + herkunft_vig*w8_resp + pol_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + geschlecht_resp"),
+  random = c(" + (1 | intnr) + (1 | vignette)")) %>%
+  mutate(formula = str_c(dv, iv, random))
+
+# Run models
+model_int.df <- model_int.df %>%
+  mutate(result = map(formula, ~lmerTest::lmer(formula = .x, data = cawi_long.df)))
+
+### Plot ----
+# Geschlecht x Mehrstaatigkeit
+gender_x_cit.fig <- marginaleffects::predictions(
+  model_int.df[model_int.df$model == "int: sig",]$result[[1]], 
+  newdata = datagrid(geschlecht_vig = unique, 
+                     mehrstaatigkeit_vig = unique),
+  re.form = NA) %>%
+  mutate(geschlecht_vig = factor(geschlecht_vig, 
+                                 levels = c("weiblich", "männlich"), 
+                                 labels = c("female", "male")),
+         mehrstaatigkeit_vig = factor(mehrstaatigkeit_vig, 
+                                      levels = c("behalten", "aufgeben"),
+                                      labels = c("Retain", "Renounce"))) %>%
+  ggplot(aes(x = geschlecht_vig, y = estimate, ymin = conf.low, ymax = conf.high, 
+             shape = mehrstaatigkeit_vig,
+             colour = mehrstaatigkeit_vig)) + 
+  geom_pointrange(position = position_dodge(width = .9), size = 1.5, linewidth = 1.5) +
+  scale_y_continuous(limits = c(3, 4.9)) +
+  scale_colour_manual(values = c("Renounce" = "#969696", "Retain" = "#252525")) +
+  scale_shape_manual(values = c("Renounce" = 15, "Retain" = 16)) +
+  labs(title = "Gender × Dual citizenship", x = "", y = "", colour = "", shape = "") +
+  theme_ipsum(base_family = "Roboto Condensed") +
+  coefplot.theme +
+  theme(legend.text = element_text(size = 16, family = "Roboto Condensed"))
+
+# Reposition legend
+gender_x_cit.fig <- gender_x_cit.fig %>%
+  lemon::reposition_legend(position = "top right")
+
+# Geschlecht x Mehrstaatigkeit
+gender_x_residence.fig <- marginaleffects::predictions(
+  model_int.df[model_int.df$model == "int: sig",]$result[[1]], 
+  newdata = datagrid(geschlecht_vig = unique, 
+                     aufenthaltsdauer_vig = unique),
+  re.form = NA) %>%
+  mutate(geschlecht_vig = factor(geschlecht_vig, 
+                                 levels = c("weiblich", "männlich"), 
+                                 labels = c("female", "male")),
+         aufenthaltsdauer_vig = factor(aufenthaltsdauer_vig,
+                                       levels = c("3 Jahre", "5 Jahre", "10 Jahre"),
+                                       labels = c("3 years", "5 years", "10 years"))) %>%
+  ggplot(aes(x = geschlecht_vig, y = estimate, ymin = conf.low, ymax = conf.high, 
+             colour = aufenthaltsdauer_vig, shape = aufenthaltsdauer_vig)) + 
+  geom_pointrange(position = position_dodge(width = .9), size = 1.5, linewidth = 1.5) +
+  scale_y_continuous(limits = c(3, 4.9)) +
+  scale_colour_manual(values = c("3 years" = "#bdbdbd", "5 years" = "#737373", "10 years" = "#252525")) +
+  labs(title = "Gender × Residence period", x = "", y = "", colour = "", shape = "") +
+  theme_ipsum(base_family = "Roboto Condensed") +
+  coefplot.theme +
+  theme(legend.text = element_text(size = 16, family = "Roboto Condensed"))
+
+# Reposition legend
+gender_x_residence.fig <- gender_x_residence.fig %>%
+  lemon::reposition_legend(position = "top right")
+
+# Combine
+twoway_vig.fig <- wrap_plots(
+  gender_x_cit.fig, gender_x_residence.fig,
+  ncol = 2) + 
+  plot_annotation(tag_levels = "A")
+
+# Regression table
+mlm_int.tbl <- modelsummary(model_int.df$result,
+                        stars = TRUE, output = "gt",
+                        coef_map = c("(Intercept)" = "Intercept",
+                                     "geschlecht_vigmännlich" = "Gender: Male (ref.: Female)",
+                                     "herkunft_vigTürkei" = "Country of origin: Turkey (ref.: Great Britain)",
+                                     "herkunft_vigIndien" = "India",
+                                     "aufenthaltsdauer_vig5 Jahre" = "Duration of residence: 5 years (ref.: 3 years)",
+                                     "aufenthaltsdauer_vig10 Jahre" = "10 years",
+                                     "sprachkenntnisse_vigsehr gut" = "Language proficiency: Very good (ref.: Little)",
+                                     "erwerbstätigkeit_vigberufstätig" = "Employment: Employed (ref.: Seeking employment)",
+                                     "mehrstaatigkeit_vigaufgeben" = "Current citizenship: Renounce (ref.: Retain)",
+                                     "mehrstaatigkeit_vigaufgeben:geschlecht_vigmännlich" = "Current citizenship: Renounce × Gender: Male",
+                                     "geschlecht_vigmännlich:aufenthaltsdauer_vig5 Jahre" = "Gender: Male × Residence period: 5 years",
+                                     "geschlecht_vigmännlich:aufenthaltsdauer_vig10 Jahre" = "Gender: Male × Residence period: 10 years",
+                                     #  "aufenthaltsdauer_vig5 Jahre × geschlecht_vigmännlich" = "Gender: Male × Residence period: 5 years",
+                                     #  "aufenthaltsdauer_vig10 Jahre × geschlecht_vigmännlich" = "Gender: Male × Residence period: 10 years",
+                                     "geschlecht_respmännlich" = "Gender (resp.): Male",
+                                     "alter_resp" = "Age (resp.)",
+                                     "bildung_respRealschulabschluss, POS (10)" = "Education (resp.): Realschule (10) (ref.: Hauptschule (8/9))",
+                                     "bildung_respAbitur, Fachhochschulreife" = "Abitur, Fachhochschulreife",
+                                     "bildung_respkein Schulabschluss/in Beschulung" = "No diploma/in school",
+                                     "staatsbürgerschaft_respdoppelte Staatsangehörigkeit" = "Citizenship (resp.): Dual citizenship (ref.: Only German)",
+                                     "staatsbürgerschaft_respkeine deutsche Staatsangehörigkeit" = "Third country",
+                                     "region_respOstdeutschland" = "Region (resp.): East Germany (ref.: West Germany)",
+                                     "w8_resp" = "Immigration concern (resp.)",
+                                     "w2_resp" = "Economic concern (resp.)",
+                                     "pol_respSPD" = "Party preference (resp.): SPD (ref.: CDU/CSU)",
+                                     "pol_respBündnis 90 / Die Grünen" = "Bündnis 90 / Die Grünen",
+                                     "pol_respFDP" = "FDP",
+                                     "pol_respDie Linke" = "Die Linke",
+                                     "pol_respAfD" = "AfD",
+                                     "pol_respAndere, und zwar:" = "Other",
+                                     "pol_respKeine Partei" = "No preference",
+                                     "mehrstaatigkeit_vigaufgeben:alter_resp" = "Current citizenship: Renounce × Age (resp.)",
+                                     "w8_resp:herkunft_vigTürkei" = "Country of origin: Turkey × Immigration concern (resp.)",
+                                     "w8_resp:herkunft_vigIndien" = "Country of origin: India × Immigration concern (resp.)",
+                                     "erwerbstätigkeit_vigberufstätig:w8_resp" = "Employment: Employed × Immigration concern (resp.)",
+                                     "erwerbstätigkeit_vigberufstätig:w2_resp" = "Employment: Employed × Economic concern (resp.)"))
+
 ## Tobit model ----
 require(GLMMadaptive)
 
@@ -867,15 +921,14 @@ cawi_long.df <- cawi_long.df %>%
 
 # Model df
 tobit.df <- tibble(
-  model = c("base", "main", "int: all", "int: sig", "respondent", "int: cross-level"),
+  model = c("base", "main", "int: all", "respondent", "cross-level"),
   dv = "cbind(rating, ind) ~ ",
   iv = c(
     "1",
     "mehrstaatigkeit_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig + geschlecht_vig",
     "(mehrstaatigkeit_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig + geschlecht_vig)^2",
-    "mehrstaatigkeit_vig*geschlecht_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig*geschlecht_vig + herkunft_vig",
-    "erwerbstätigkeit_vig + sprachkenntnisse_vig + herkunft_vig + aufenthaltsdauer_vig*geschlecht_vig + mehrstaatigkeit_vig*geschlecht_vig + pol_resp + w2_resp + w8_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + alter_resp + geschlecht_resp",
-    "mehrstaatigkeit_vig*alter_resp + mehrstaatigkeit_vig*w8_resp + erwerbstätigkeit_vig*w8_resp + sprachkenntnisse_vig + aufenthaltsdauer_vig*geschlecht_vig + mehrstaatigkeit_vig*geschlecht_vig + herkunft_vig*w8_resp + pol_resp + w2_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + geschlecht_resp")) %>%
+    "mehrstaatigkeit_vig + erwerbstätigkeit_vig + sprachkenntnisse_vig + aufenthaltsdauer_vig + herkunft_vig + geschlecht_vig + pol_resp + w2_resp + w8_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + alter_resp + geschlecht_resp",
+    "mehrstaatigkeit_vig*alter_resp + erwerbstätigkeit_vig*w8_resp + erwerbstätigkeit_vig*w2_resp + sprachkenntnisse_vig + geschlecht_vig + aufenthaltsdauer_vig + herkunft_vig*w8_resp + pol_resp + region_resp + staatsbürgerschaft_resp + bildung_resp + geschlecht_resp")) %>%
   mutate(formula = str_c(dv, iv))
 
 # Run models
@@ -886,75 +939,126 @@ tobit.df <- tobit.df %>%
                                                           family = censored.normal())))
 
 # Regression table
-mlm_tobit.tbl <- modelsummary(tobit.df[tobit.df$model %in% c("base", "main", "int: sig", 
-                                                                       "respondent", "int: cross-level"),]$result,
-                                stars = TRUE,
-                                coef_map = c("(Intercept)" = "Intercept",
-                                             "geschlecht_vigmännlich" = "Gender: Male (ref.: Female)",
-                                             "herkunft_vigTürkei" = "Country of origin: Turkey (ref.: Great Britain)",
-                                             "herkunft_vigIndien" = "India",
-                                             "aufenthaltsdauer_vig5 Jahre" = "Duration of residence: 5 years (ref.: 3 years)",
-                                             "aufenthaltsdauer_vig10 Jahre" = "10 years",
-                                             "sprachkenntnisse_vigsehr gut" = "Language proficiency: Very good (ref.: Little)",
-                                             "erwerbstätigkeit_vigberufstätig" = "Employment: Employed (ref.: Seeking employment)",
-                                             "mehrstaatigkeit_vigaufgeben" = "Current citizenship: Renounce (ref.: Retain)",
-                                             "mehrstaatigkeit_vigaufgeben:geschlecht_vigmännlich" = "Current citizenship: Renounce × Gender: Male",
-                                             "geschlecht_vigmännlich:aufenthaltsdauer_vig5 Jahre" = "Gender: Male × Residence period: 5 years",
-                                             "geschlecht_vigmännlich:aufenthaltsdauer_vig10 Jahre" = "Gender: Male × Residence period: 10 years",
-                                             "geschlecht_respmännlich" = "Gender (resp.): Male",
-                                             "alter_resp" = "Age (resp.)",
-                                             "bildung_respRealschulabschluss, POS (10)" = "Education (resp.): Realschule (10) (ref.: Hauptschule (8/9))",
-                                             "bildung_respAbitur, Fachhochschulreife" = "Abitur, Fachhochschulreife",
-                                             "bildung_respkein Schulabschluss/in Beschulung" = "No diploma/in school",
-                                             "staatsbürgerschaft_respdoppelte Staatsangehörigkeit" = "Citizenship (resp.): Dual citizenship (ref.: Only German)",
-                                             "staatsbürgerschaft_respkeine deutsche Staatsangehörigkeit" = "Third country",
-                                             "region_respOstdeutschland" = "Region (resp.): East Germany (ref.: West Germany)",
-                                             "w8_resp" = "Immigration concern (resp.)",
-                                             "w2_resp" = "Economic concern (resp.)",
-                                             "pol_respSPD" = "Party preference (resp.): SPD (ref.: CDU/CSU)",
-                                             "pol_respBündnis 90 / Die Grünen" = "Bündnis 90 / Die Grünen",
-                                             "pol_respFDP" = "FDP",
-                                             "pol_respDie Linke" = "Die Linke",
-                                             "pol_respAfD" = "AfD",
-                                             "pol_respAndere, und zwar:" = "Other",
-                                             "pol_respKeine Partei" = "No preference",
-                                             "mehrstaatigkeit_vigaufgeben:alter_resp" = "Current citizenship: Renounce × Age (resp.)",
-                                             "w8_resp:herkunft_vigTürkei" = "Country of origin: Turkey × Immigration concern (resp.)",
-                                             "w8_resp:herkunft_vigIndien" = "Country of origin: India × Immigration concern (resp.)",
-                                             "w8_resp:erwerbstätigkeit_vigberufstätig" = "Employment: Employed × Immigration concern (resp.)",
-                                             "mehrstaatigkeit_vigaufgeben:w8_resp" = "Current citizenship: Renounce × Immigration concern (resp.)"))
+mlm_tobit.tbl <- modelsummary(tobit.df[tobit.df$model %in% c("base", "main", 
+                                                             "respondent", "cross-level"),]$result,
+                              stars = TRUE, output = "gt",
+                              coef_map = c("(Intercept)" = "Intercept",
+                                           "geschlecht_vigmännlich" = "Gender: Male (ref.: Female)",
+                                           "herkunft_vigTürkei" = "Country of origin: Turkey (ref.: Great Britain)",
+                                           "herkunft_vigIndien" = "India",
+                                           "aufenthaltsdauer_vig5 Jahre" = "Duration of residence: 5 years (ref.: 3 years)",
+                                           "aufenthaltsdauer_vig10 Jahre" = "10 years",
+                                           "sprachkenntnisse_vigsehr gut" = "Language proficiency: Very good (ref.: Little)",
+                                           "erwerbstätigkeit_vigberufstätig" = "Employment: Employed (ref.: Seeking employment)",
+                                           "mehrstaatigkeit_vigaufgeben" = "Current citizenship: Renounce (ref.: Retain)",
+                                           "mehrstaatigkeit_vigaufgeben:geschlecht_vigmännlich" = "Current citizenship: Renounce × Gender: Male",
+                                           "geschlecht_vigmännlich:aufenthaltsdauer_vig5 Jahre" = "Gender: Male × Residence period: 5 years",
+                                           "geschlecht_vigmännlich:aufenthaltsdauer_vig10 Jahre" = "Gender: Male × Residence period: 10 years",
+                                           #  "aufenthaltsdauer_vig5 Jahre × geschlecht_vigmännlich" = "Gender: Male × Residence period: 5 years",
+                                           #  "aufenthaltsdauer_vig10 Jahre × geschlecht_vigmännlich" = "Gender: Male × Residence period: 10 years",
+                                           "geschlecht_respmännlich" = "Gender (resp.): Male",
+                                           "alter_resp" = "Age (resp.)",
+                                           "bildung_respRealschulabschluss, POS (10)" = "Education (resp.): Realschule (10) (ref.: Hauptschule (8/9))",
+                                           "bildung_respAbitur, Fachhochschulreife" = "Abitur, Fachhochschulreife",
+                                           "bildung_respkein Schulabschluss/in Beschulung" = "No diploma/in school",
+                                           "staatsbürgerschaft_respdoppelte Staatsangehörigkeit" = "Citizenship (resp.): Dual citizenship (ref.: Only German)",
+                                           "staatsbürgerschaft_respkeine deutsche Staatsangehörigkeit" = "Third country",
+                                           "region_respOstdeutschland" = "Region (resp.): East Germany (ref.: West Germany)",
+                                           "w8_resp" = "Immigration concern (resp.)",
+                                           "w2_resp" = "Economic concern (resp.)",
+                                           "pol_respSPD" = "Party preference (resp.): SPD (ref.: CDU/CSU)",
+                                           "pol_respBündnis 90 / Die Grünen" = "Bündnis 90 / Die Grünen",
+                                           "pol_respFDP" = "FDP",
+                                           "pol_respDie Linke" = "Die Linke",
+                                           "pol_respAfD" = "AfD",
+                                           "pol_respAndere, und zwar:" = "Other",
+                                           "pol_respKeine Partei" = "No preference",
+                                           "mehrstaatigkeit_vigaufgeben:alter_resp" = "Current citizenship: Renounce × Age (resp.)",
+                                           "w8_resp:herkunft_vigTürkei" = "Country of origin: Turkey × Immigration concern (resp.)",
+                                           "w8_resp:herkunft_vigIndien" = "Country of origin: India × Immigration concern (resp.)",
+                                           "erwerbstätigkeit_vigberufstätig:w8_resp" = "Employment: Employed × Immigration concern (resp.)",
+                                           "erwerbstätigkeit_vigberufstätig:w2_resp" = "Employment: Employed × Economic concern (resp.)"))
+
+## Long format ----
+# Regression table
+mlm_two_way.tbl <- modelsummary(model.df[model.df$model %in% c("int: all"),]$result,
+                            stars = TRUE, output = "gt",
+                            coef_map = c("(Intercept)" = "Intercept",
+                                         "geschlecht_vigmännlich" = "Gender: Male (ref.: Female)",
+                                         "herkunft_vigTürkei" = "Country of origin: Turkey (ref.: Great Britain)",
+                                         "herkunft_vigIndien" = "India",
+                                         "aufenthaltsdauer_vig5 Jahre" = "Duration of residence: 5 years (ref.: 3 years)",
+                                         "aufenthaltsdauer_vig10 Jahre" = "10 years",
+                                         "sprachkenntnisse_vigsehr gut" = "Language proficiency: Very good (ref.: Little)",
+                                         "erwerbstätigkeit_vigberufstätig" = "Employment: Employed (ref.: Seeking employment)",
+                                         "mehrstaatigkeit_vigaufgeben" = "Current citizenship: Renounce (ref.: Retain)",
+                                         # Dual citizenship
+                                         "mehrstaatigkeit_vigaufgeben:erwerbstätigkeit_vigberufstätig" = "Current citizenship: Renounce × Employment: Employed",
+                                         "mehrstaatigkeit_vigaufgeben:geschlecht_vigmännlich" = "Current citizenship: Renounce × Gender: Male",
+                                         "mehrstaatigkeit_vigaufgeben:sprachkenntnisse_vigsehr gut" = "Current citizenship: Renounce × Language proficiency: Very good",
+                                         "mehrstaatigkeit_vigaufgeben:aufenthaltsdauer_vig10 Jahre" = "Current citizenship: Renounce × Residence period: 10 years",
+                                         "mehrstaatigkeit_vigaufgeben:aufenthaltsdauer_vig5 Jahre" = "Current citizenship: Renounce × Residence period: 5 years",
+                                         "mehrstaatigkeit_vigaufgeben:herkunft_vigIndien" = "Current citizenship: Renounce × Country of origin: India",
+                                         "mehrstaatigkeit_vigaufgeben:herkunft_vigTürkei" = "Current citizenship: Renounce × Country of origin: Turkey",
+                                         # Employment
+                                         "erwerbstätigkeit_vigberufstätig:geschlecht_vigmännlich" = "Employment: Employed × Gender: Male",
+                                         "erwerbstätigkeit_vigberufstätig:sprachkenntnisse_vigsehr gut" = "Employment: Employed × Language proficiency: Very good",
+                                         "erwerbstätigkeit_vigberufstätig:aufenthaltsdauer_vig10 Jahre" = "Employment: Employed × Residence period: 10 years",
+                                         "erwerbstätigkeit_vigberufstätig:aufenthaltsdauer_vig5 Jahre" = "Employment: Employed × Residence period: 5 years",
+                                         "erwerbstätigkeit_vigaufgeben:herkunft_vigIndien" = "Employment: Employed × Country of origin: India",
+                                         "erwerbstätigkeit_vigaufgeben:herkunft_vigTürkei" =  "Employment: Employed × Country of origin: Turkey",
+                                         # Gender
+                                         "geschlecht_vigmännlich:sprachkenntnisse_vigsehr gut" = "Gender: Male × Language proficiency: Very good",
+                                         "geschlecht_vigmännlich:herkunft_vigIndien" = "Gender: Male × Country of origin: India",
+                                         "geschlecht_vigmännlich:herkunft_vigTürkei" = "Gender: Male × Country of origin: Turkey",
+                                         "geschlecht_vigmännlich:aufenthaltsdauer_vig5 Jahre" = "Gender: Male × Residence period: 5 years",
+                                         "geschlecht_vigmännlich:aufenthaltsdauer_vig10 Jahre" = "Gender: Male × Residence period: 10 years",
+                                         # Language skills
+                                         "sprachkenntnisse_vigsehr gut:aufenthaltsdauer_vig10 Jahre" = "Language proficiency: Very good × Residence period: 10 years",
+                                         "sprachkenntnisse_vigsehr gut:aufenthaltsdauer_vig5 Jahre" = "Language proficiency: Very good × Residence period: 5 years",
+                                         "sprachkenntnisse_vigsehr gut:herkunft_vigIndien" = "Language proficiency: Very good × Country of origin: India",
+                                         "sprachkenntnisse_vigsehr gut:herkunft_vigTürkei" = "Language proficiency: Very good × Country of origin: Turkey",
+                                         # Residence period
+                                         "aufenthaltsdauer_vig10 Jahre:herkunft_vigIndien" = "Residence period: 10 years × Country of origin: India",
+                                         "aufenthaltsdauer_vig5 Jahre:herkunft_vigIndien" = "Residence period: 5 years × Country of origin: India",
+                                         "aufenthaltsdauer_vig10 Jahre:herkunft_vigTürkei" = "Residence period: 10 years × Country of origin: Turkey",
+                                         "aufenthaltsdauer_vig5 Jahre:herkunft_vigTürkei" = "Residence period: 5 years × Country of origin: Turkey"))
 
 # Export ----
-ggsave(plot = main_model.fig, filename = here("figures", "main_mod_coefplot.png"), 
-       device = ragg::agg_png(res = 300), bg = "white",
-       width = 20, height = 16, units = "cm")
+ggsave(plot = main_model.fig, filename = here("figures", "main_mod_coefplot_revised.png"), 
+       device = ragg::agg_png(res = 300), bg = "white", scale = 1.1,
+       width = 24, height = 20, units = "cm")
 
-ggsave(plot = twoway_vig.fig, filename = here("figures", "vig_twoway.png"),
+ggsave(plot = twoway_vig.fig, filename = here("figures", "vig_twoway_revised.png"),
        device = ragg::agg_png(res = 300), bg = "white",
        width = 28, height = 18, units = "cm")
 
-ggsave(plot = respondent_model.fig, filename = here("figures", "resp_mod_coefplot.png"), 
-       device = ragg::agg_png(res = 300), bg = "white",
-       width = 34, height = 28, units = "cm")
+ggsave(plot = respondent_model.fig, filename = here("figures", "resp_mod_coefplot_revised.png"), 
+       device = ragg::agg_png(res = 300), bg = "white", scale = 1.1,
+       width = 34, height = 32, units = "cm")
 
 ggsave(plot = resp_model$plot[[2]] + labs(title = ""),
-       filename = here("figures", "resp_mod_coefplot_L2.png"), 
-       device = ragg::agg_png(res = 300), bg = "white",
-       width = 20, height = 26, units = "cm")
+       filename = here("figures", "resp_mod_coefplot_L2_revised2.png"), 
+       device = ragg::agg_png(res = 300), bg = "white", scale = 1.1,
+       width = 20, height = 28, units = "cm")
 
-ggsave(plot = cross_lvl.fig, filename = here("figures", "cross_lvl_interactions.png"),
+ggsave(plot = cross_lvl.fig, filename = here("figures", "cross_lvl_interactions_revised2.png"),
        device = ragg::agg_png(res = 300), bg = "white",
        width = 30, height = 24, units = "cm")
 
 # Tables
+# Vignette design
 gtsave(balance.tbl, filename = here("output", "vignette-dimensions.rtf"))
-
 gtsave(orthogonality.tbl, filename = here("output", "orthogonality.rtf"))
 
-gtsave(mlm.tbl, filename = here("output", "mlm-results.rtf"))
-gtsave(mlm_nondiff.tbl, filename = here("output", "mlm-nondiff-results.rtf"))
-gtsave(mlm_tobit.tbl, filename = here("output", "mlm-tobit-results.rtf"))
+# Model results
+gtsave(mlm.tbl, filename = here("output", "mlm-results_revised2.rtf"))
+gtsave(mlm_nondiff.tbl, filename = here("output", "mlm-nondiff-results_revised2.rtf"))
+gtsave(mlm_tobit.tbl, filename = here("output", "mlm-tobit-results_revised2.rtf"))
+gtsave(mlm_two_way.tbl, filename = here("output", "mlm-twoway-results.rtf"))
+gtsave(mlm_int.tbl, filename = here("output", "mlm-lrtest-results.rtf"))
 
-gtsave(lr_test.tbl, filename = here("output", "lrtest.rtf"))
-
+# LR-Test
+gtsave(lr_test.tbl, filename = here("output", "lrtest_revised.rtf"))
+# Summary statistics
 gtsave(resp_attr.tbl, filename = here("output", "respondent_attributes.rtf"))

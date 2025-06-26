@@ -24,7 +24,7 @@ freq_tbl <- function(data, var, wt = NULL){
 
 ### Load data ----
 # Allbus
-allbus21.df <- tibble(import(here("data", "ZA5280_v2-0-0.sav")))
+allbus23.df <- tibble(import(here("data", "ZA8831_v1-2-0.sav")))
 
 # CAWI
 cawi.orig <- tibble(import(here("data", "SVR_Cawi.sav"))) %>%
@@ -115,7 +115,7 @@ cawi.df <- cawi.orig %>%
     wghtpew = 1)
 
 # Data wrangling 
-allbus21.df <- allbus21.df %>%
+allbus23.df <- allbus23.df %>%
   mutate(
     alter_kat_resp = case_when(
       between(age, 18, 29) ~ "18–29 years",
@@ -153,7 +153,7 @@ allbus21.df <- allbus21.df %>%
 # Combine data
 df <- tibble(
   source = c("ALLBUS", "CAWI"),
-  data = list(allbus21.df, cawi.df)
+  data = list(allbus23.df, cawi.df)
 )
 
 ## Plot ----
@@ -260,6 +260,6 @@ crossplot.fig <- wrap_plots(age.fig, educ.fig, sex.fig, cross.fig, design = layo
   plot_annotation(tag_levels = "A")
 
 ## Export ----
-ggsave(plot = crossplot.fig, filename = here("figures", "sample_compare.png"), 
+ggsave(plot = crossplot.fig, filename = here("figures", "sample_compare_revised.png"), 
        device = ragg::agg_png(res = 300), bg = "white",
        width = 48, height = 24, units = "cm")

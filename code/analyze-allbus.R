@@ -138,9 +138,16 @@ citreq.fig <- citreq.fig +
             size = 5)
 
 ## Export ----
-ggsave(here("figures", "Attitudes-naturalization-reqs_Allbus-EN.png"),
+# PNG
+ggsave(here("figures", "Attitudes-naturalization-reqs_Allbus-EN.tiff"),
        plot = citreq.fig,
-       height = 20, width = 34, units = "cm", device = ragg::agg_png, dpi = 300,
+       height = 20, width = 34, units = "cm", device = ragg::agg_tiff, dpi = 300,
+       bg = "white")
+
+# TIFF
+ggsave(here("figures", "Attitudes-naturalization-reqs_Allbus-EN.tiff"),
+       plot = citreq.fig,
+       height = 20, width = 34, units = "cm", device = ragg::agg_tiff, dpi = 330,
        bg = "white")
 
 # Close device

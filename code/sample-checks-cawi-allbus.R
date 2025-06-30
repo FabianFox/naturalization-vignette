@@ -260,6 +260,13 @@ crossplot.fig <- wrap_plots(age.fig, educ.fig, sex.fig, cross.fig, design = layo
   plot_annotation(tag_levels = "A")
 
 ## Export ----
+# Figure A1
+# PNG
 ggsave(plot = crossplot.fig, filename = here("figures", "sample_compare_revised.png"), 
        device = ragg::agg_png(res = 300), bg = "white",
+       width = 48, height = 24, units = "cm")
+
+# TIFF
+ggsave(plot = crossplot.fig, filename = here("figures", "publication", "FigureA1_Frequency_distribution_of_age_education_and_gender_in_online_survey_and_ALLBUS.tiff"), 
+       device = ragg::agg_tiff(res = 600), bg = "white",
        width = 48, height = 24, units = "cm")

@@ -145,7 +145,7 @@ ggsave(here("figures", "Attitudes-naturalization-reqs_Allbus-EN.tiff"),
        bg = "white")
 
 # TIFF
-ggsave(here("figures", "Attitudes-naturalization-reqs_Allbus-EN.tiff"),
+ggsave(here("figures", "publication", "Attitudes-naturalization-reqs_Allbus-EN.tiff"),
        plot = citreq.fig,
        height = 20, width = 34, units = "cm", device = ragg::agg_tiff, dpi = 330,
        bg = "white")

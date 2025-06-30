@@ -1025,26 +1025,51 @@ mlm_two_way.tbl <- modelsummary(model.df[model.df$model %in% c("int: all"),]$res
                                          "aufenthaltsdauer_vig5 Jahre:herkunft_vigTürkei" = "Residence period: 5 years × Country of origin: Turkey"))
 
 # Export ----
+# Figure 3
+# PNG
 ggsave(plot = main_model.fig, filename = here("figures", "main_mod_coefplot_revised.png"), 
        device = ragg::agg_png(res = 300), bg = "white", scale = 1.1,
        width = 24, height = 20, units = "cm")
 
-ggsave(plot = twoway_vig.fig, filename = here("figures", "vig_twoway_revised.png"),
-       device = ragg::agg_png(res = 300), bg = "white",
-       width = 28, height = 18, units = "cm")
+# TIFF
+ggsave(plot = main_model.fig, filename = here("figures", "publication", "Figure3_Linear_multilevel_regression_model_for_naturalization_preference_on_vignette_dimensions.tiff"), 
+       device = ragg::agg_tiff(res = 600), bg = "white", scale = 1.1,
+       width = 24, height = 20, units = "cm")
 
-ggsave(plot = respondent_model.fig, filename = here("figures", "resp_mod_coefplot_revised.png"), 
-       device = ragg::agg_png(res = 300), bg = "white", scale = 1.1,
-       width = 34, height = 32, units = "cm")
-
+# Figure 4
+# PNG
 ggsave(plot = resp_model$plot[[2]] + labs(title = ""),
        filename = here("figures", "resp_mod_coefplot_L2_revised2.png"), 
        device = ragg::agg_png(res = 300), bg = "white", scale = 1.1,
        width = 20, height = 28, units = "cm")
 
+# TIFF
+ggsave(plot = resp_model$plot[[2]] + labs(title = ""),
+       filename = here("figures", "publication", "Figure4_Linear_multilevel_regression_model_for_naturalization_preference_on_respondent_characteristics.tiff"), 
+       device = ragg::agg_tiff(res = 600), bg = "white", scale = 1.1,
+       width = 20, height = 28, units = "cm")
+
+# Figure 5
+# PNG
 ggsave(plot = cross_lvl.fig, filename = here("figures", "cross_lvl_interactions_revised2.png"),
        device = ragg::agg_png(res = 300), bg = "white",
        width = 30, height = 24, units = "cm")
+
+# TIFF
+ggsave(plot = cross_lvl.fig, filename = here("figures", "publication", "Figure5_Conditional_Effects_plots_of_cross_level_interactions_from_a_linear_multilevel_regression_model_for_naturalization_preference_on_respondent_characteristics.tiff"),
+       device = ragg::agg_tiff(res = 600), bg = "white",
+       width = 30, height = 24, units = "cm")
+
+# Figure A2
+# PNG
+ggsave(plot = twoway_vig.fig, filename = here("figures", "vig_twoway_revised.png"),
+       device = ragg::agg_png(res = 300), bg = "white",
+       width = 28, height = 18, units = "cm")
+
+# TIFF
+ggsave(plot = twoway_vig.fig, filename = here("figures", "publication", "FigureA2_Conditional_Effect_Plots_of_Two_way_Vignette_Interactions.tiff"),
+       device = ragg::agg_tiff(res = 600), bg = "white",
+       width = 28, height = 18, units = "cm")
 
 # Tables
 # Vignette design
